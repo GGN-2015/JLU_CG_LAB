@@ -1,0 +1,28 @@
+演示程序MFCDemo中各部分注释实现功能，在程序中出现的位置，以及涉及的知识点如下：
+注释【1】部分：设备环境对象以及绘图函数
+	程序中出现的位置：CMFCDemoView类的OnDraw函数
+	知识点：了解设备环境对象及绘图函数，要绘图必须有设备环境对象
+注释【2】部分：获得设备环境对象的方法
+	程序中出现的位置：CMFCDemoView类的OnDraw函数
+	知识点：了解如何获得设备环境对象
+注释【3】部分：画笔和画刷的使用
+	程序中出现的位置：CMFCDemoView类的OnDraw函数
+	知识点：了解如何使用画笔类CPen和画刷类CBrush
+注释【4】部分：实现图形学算法，利用算法完成绘图
+	程序中出现的位置：CMFCDemoView类的OnDraw函数、DDALine函数
+	知识点：在应用程序中添加用于实现算法的函数，需要确定函数名，参数，返回值
+注释【5】部分：用鼠标绘制直线段
+	程序中出现的位置：CMFCDemoView类的鼠标消息处理函数OnLButtonDown函数、OnLButtonUp函数和OnMouseMove函数，CMFCDemoView类头文件中相应变量的声明，CMFCDemoView类构造函数中相应变量的初始化
+	知识点：添加鼠标消息，并编写消息处理函数，了解什么是橡皮线以及如何实现
+注释【6】部分：用鼠标同时绘制直线段和矩形
+	程序中出现的位置：CMFCDemoView类的鼠标消息处理函数OnLButtonDown函数、OnLButtonUp函数和OnMouseMove函数，CMFCDemoView类头文件中相应变量的声明，CMFCDemoView类构造函数中相应变量的初始化，CMFCDemoView类的工具条按钮处理函数OnLine函数和OnRectangle函数
+	知识点：添加工具条按钮，并编写相应消息处理函数，以及如何用鼠标绘制不同图形
+注释【7】部分：实现重画（窗口形状位置发生改变后，视图区内容应该仍然存在）
+	程序中出现的位置：CMFCDemoView类的鼠标消息处理函数OnLButtonUp函数，CMFCDemoView类头文件中相应变量的声明及引用对象的包含，CMFCDemoView类构造函数中相应变量的初始化，MapObj类头文件中成员变量的声明
+	知识点：程序中添加新类用于保存图形信息，在OnDraw函数中重新绘制所有图形以实现重画
+注释【8】部分：设置颜色（通过对话框设置颜色来绘制不同颜色的图形）
+	程序中出现的位置：CMFCDemoView类的鼠标消息处理函数OnLButtonUp函数，CMFCDemoView类的菜单项处理函数OnSetcolor，CMFCDemoView类CPP文件里SetColor类的包含，CMFCDemoView类头文件中相应变量的声明，CMFCDemoView类构造函数中相应变量的初始化
+	知识点：添加对话框资源，生成对话框类，调用对话框并获得对话框中输入的值，添加菜单项并编写处理函数
+注释【9】部分：移动图形（通过键盘按键移动图形）
+	程序中出现的位置：CMFCDemoView类的键盘消息处理函数OnKeyDown
+	知识点：添加键盘消息并编写消息处理函数
