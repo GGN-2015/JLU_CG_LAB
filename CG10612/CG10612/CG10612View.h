@@ -29,8 +29,9 @@ typedef std::map<int, CCircle> CCCircleMap;  /* 椭圆集合 */
 /* ---------- 我的常量 ---------- */
 #define NODE_RADIUS (5)                    /* 结点半径*/
 #define NODE_WIDTH (1)                     /* 结点线宽 */
-#define NODE_COLOR RGB(0, 0, 0)            /* 结点默认颜色 */
+#define NODE_COLOR RGB(0, 0, 255)          /* 结点默认颜色 */
 #define NODE_SELECTED_COLOR RGB(255, 0, 0) /* 结点选中时颜色 */
+#define ELLIPSE_COLOR RGB(0, 0, 0) /* 算法绘制椭圆时采用的颜色 */
 
 #define STATE_FREE (0)       /* 自由光标 */
 #define STATE_SETNODE (1)    /* 设置结点 */
@@ -92,6 +93,8 @@ class CCG10612View : public CView {
                                    const char* n_Msg);
   static void MyStaticFunc_DrawEllipse(CDC* pDC,
                                        RECT* pRect); /* 绘制椭圆算法 */
+  static void MyMathFunc_DrawEllipse(CDC* pDC, RECT* pRect,
+                                     COLORREF color); /* 绘制椭圆算法 */
   static void MyStaticFunc_DrawNode(CDC*, CPoint);
 
 /* 用于报错的宏 */

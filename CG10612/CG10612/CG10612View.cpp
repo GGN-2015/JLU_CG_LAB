@@ -104,13 +104,80 @@ void CCG10612View::MyStaticFunc_Warning(const char* n_File, int n_Line,
 }
 
 void CCG10612View::MyStaticFunc_DrawEllipse(CDC* pDC, RECT* pRect) {
+#define sqr(x) ((double)(x) * (x))
   CBrush* pBrush =
       CBrush::FromHandle((HBRUSH)GetStockObject(NULL_BRUSH)); /* 空刷子 */
   CBrush* oldBrush = pDC->SelectObject(pBrush);
 
-  pDC->Ellipse(pRect);
+  // pDC->Ellipse(pRect);
+  /* 使用 SetPixel 实现 DrawEllipse. */
+
+  MyMathFunc_DrawEllipse(pDC, pRect, ELLIPSE_COLOR);
 
   pDC->SelectObject(oldBrush);
+#undef sqr
+}
+
+void CCG10612View::MyMathFunc_DrawEllipse(CDC* pDC, RECT* pRect,
+                                          COLORREF color) {
+#define sqr(x) ((double)(x) * (x))
+  /* 计算圆心坐标 */
+  int cx = int((pRect->left + pRect->right) / 2.0 + 0.5);
+  int cy = int((pRect->top + pRect->bottom) / 2.0 + 0.5);
+
+  /* 计算椭圆的轴线长度 */
+  int a = int((pRect->right - pRect->left) / 2.0 + 0.5);
+  int b = int((pRect->bottom - pRect->top) / 2.0 + 0.5);
+
+  /* 从 y 轴正方向极值点开始绘制，所有坐标都是相对圆心坐标 */
+  int dx = 0;
+  int dy = b;
+
+  /* 向右前进 */
+  do {
+    for (int i = 0; i < 4; i += 1) { /* 绘制四个对称点 */
+      int rdx = (i & 1) ? dx : -dx;
+      int rdy = (i & 2) ? dy : -dy;
+      pDC->SetPixel(cx + rdx, cy + rdy, color);
+    }
+    /* 得到后继中点 */
+    double mx = dx + 1;
+    double my = dy - 0.5;
+    /* 对中点计算判别式 */
+    double delta = sqr(b) * sqr(mx) + sqr(a) * sqr(my) - sqr(a) * sqr(b);
+    /* 得到后继 */
+    if (delta >= 0) { /* 中点在圆外，选择 dx + 1, dy - 1 */
+      dx++;
+      dy--;
+    } else { /* 中点在园内，选择 dx + 1, dy */
+      dx++;
+    }
+    /* 计算中点处的法向量 */
+    double vx = 2 * sqr(b) * mx;
+    double vy = 2 * sqr(a) * my;
+    if (vx >= vy) break; /* 进入横向绘图区域 */
+  } while (true);
+
+  do {
+    for (int i = 0; i < 4; i += 1) { /* 绘制四个对称点 */
+      int rdx = (i & 1) ? dx : -dx;
+      int rdy = (i & 2) ? dy : -dy;
+      pDC->SetPixel(cx + rdx, cy + rdy, color);
+    }
+    /* 得到后继中点 */
+    double mx = dx + 0.5;
+    double my = dy - 1;
+    /* 对中点计算判别式 */
+    double delta = sqr(b) * sqr(mx) + sqr(a) * sqr(my) - sqr(a) * sqr(b);
+    /* 得到后继 */
+    if (delta >= 0) { /* 中点在圆外，选择 dx, dy - 1 */
+      dy--;
+    } else { /* 中点在圆内，选择 dx + 1, dy - 1*/
+      dx++;
+      dy--;
+    }
+  } while (dy >= 0);
+#undef sqr
 }
 
 void CCG10612View::MyStaticFunc_DrawNode(CDC* pDC, CPoint pos) {
@@ -120,7 +187,8 @@ void CCG10612View::MyStaticFunc_DrawNode(CDC* pDC, CPoint pos) {
   rect.top = pos.y - NODE_RADIUS;
   rect.bottom = pos.y + NODE_RADIUS;
 
-  pDC->Ellipse(&rect);
+  // pDC->Ellipse(&rect);
+  MyMathFunc_DrawEllipse(pDC, &rect, NODE_COLOR);
 }
 
 int CCG10612View::MyFunc_GetCursorOnNodeId(CPoint n_CursorPosition) {
@@ -205,20 +273,14 @@ void CCG10612View::MyFunc_ShowAllItem() {
 void CCG10612View::MyFunc_ShowAllNode(CDC* pDC) {
   MyFunc_SetTagsOnNode();
 
-  /* 绘制普通节点和选中结点时的画笔 */
-  BOOL ret;
-  CPen nodePen(PS_SOLID, NODE_WIDTH, NODE_COLOR);
-  CPen selectedPen(PS_SOLID, NODE_WIDTH, NODE_SELECTED_COLOR);
-
   /* 绘制所有的结点 */
   for (auto ptr = m_NodeMap.rbegin(); ptr != m_NodeMap.rend(); ptr++) {
     const auto& nodePoint = ptr->second;
-    /* 选择合适的画笔 */
-    CPen* oldPen =
-        pDC->SelectObject(nodePoint.tag == UNDEFINED ? &nodePen : &selectedPen);
+    /* 选择合适的颜色 */
+    COLORREF color =
+        ptr->second.tag == UNDEFINED ? NODE_COLOR : NODE_SELECTED_COLOR;
 
     MyStaticFunc_DrawNode(pDC, nodePoint.pos); /* 绘制椭圆结点 */
-    pDC->SelectObject(oldPen);
   }
 
   /* 绘制所有的文字 */
@@ -239,9 +301,6 @@ void CCG10612View::MyFunc_ShowAllNode(CDC* pDC) {
       pDC->DrawText(wbuf, &nRect, DT_SINGLELINE | DT_CENTER | DT_VCENTER);
     }
   }
-
-  nodePen.DeleteObject();
-  selectedPen.DeleteObject();
 }
 
 void CCG10612View::MyFunc_ChangeStateTo(int STATE_TO) {
