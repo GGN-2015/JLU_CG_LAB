@@ -181,7 +181,67 @@ void CCG20612View::MyMathFunc_DrawEllipse(CDC* pDC, RECT* pRect,
 #undef sqr
 }
 
-void CCG20612View::MyStaticFunc_DrawNode(CDC* pDC, CPoint pos) {
+void CCG20612View::MyFunc_FillPolygon(CDC* pDC, const CPolygon& n_Polygon) {
+  RECT rect;
+  rect = MyFunc_GetPolygonRect(n_Polygon);
+
+  /* 区域宽度, 区域高度 */
+  int wt = rect.right - rect.left + 1;
+  int ht = rect.bottom - rect.top + 1;
+
+  /* 记录左上角 */
+  CPoint topleft;
+  topleft.x = rect.left;
+  topleft.y = rect.top;
+
+  /* 申请临时缓冲区 */
+  std::vector<std::vector<int>> buffer;
+  for (int i = 0; i < wt; i += 1) {
+    buffer.push_back(std::vector<int>(ht, 0)); /* wt * ht 个 0 */
+  }
+
+  /* 实现一个边填充算法 */
+  const auto& nodes = n_Polygon.nodeIds;
+  for (int i = 1; i < nodes.size(); i += 1) {
+    CPoint from = m_NodeMap[nodes[i - 1]].pos;
+    CPoint to = m_NodeMap[nodes[i]].pos;
+    MyMathFunc_XorBuffer(buffer, from - topleft, to - topleft);
+  }
+  {
+    CPoint from = m_NodeMap[nodes[nodes.size() - 1]].pos;
+    CPoint to = m_NodeMap[nodes[0]].pos;
+    MyMathFunc_XorBuffer(buffer, from - topleft, to - topleft);
+  }
+
+  CPoint lastPos, nowPos, nextPos;
+  for (int i = 0; i < nodes.size(); i += 1) {
+    lastPos = i == 0 ? m_NodeMap[nodes[nodes.size() - 1]].pos
+                     : m_NodeMap[nodes[i - 1]].pos;
+    nextPos = i == nodes.size() - 1 ? m_NodeMap[nodes[0]].pos
+                                    : m_NodeMap[nodes[i + 1]].pos;
+    nowPos = m_NodeMap[nodes[i]].pos;
+    /* 极值点 */
+    if (lastPos.x < nowPos.x && nextPos.x < nowPos.x ||
+        lastPos.x > nowPos.x && nextPos.x > nowPos.x) {
+      buffer[nowPos.x - topleft.x][nowPos.y - topleft.y] ^= 1;
+    }
+  }
+
+  /* output */
+  for (int x = 0; x < buffer.size(); x += 1) {
+    int powNow = 0;
+    for (int y = 0; y < buffer[x].size(); y += 1) {
+      CPoint pos(x, y);
+      pos += topleft;
+      powNow ^= buffer[x][y];
+      if (powNow) {
+        pDC->SetPixel(pos.x, pos.y, RGB(0, 255, 0));
+      }
+    }
+  }
+}
+
+void CCG20612View::MyStaticFunc_DrawNode(CDC* pDC, CPoint pos, COLORREF color) {
   RECT rect;
   rect.left = pos.x - NODE_RADIUS;
   rect.right = pos.x + NODE_RADIUS;
@@ -189,7 +249,7 @@ void CCG20612View::MyStaticFunc_DrawNode(CDC* pDC, CPoint pos) {
   rect.bottom = pos.y + NODE_RADIUS;
 
   // pDC->Ellipse(&rect);
-  MyMathFunc_DrawEllipse(pDC, &rect, NODE_COLOR);
+  MyMathFunc_DrawEllipse(pDC, &rect, color);
 }
 
 bool CCG20612View::MyStaticFunc_CheckNodeInList(const CNodeIdList& n_NodeIdList,
@@ -198,6 +258,40 @@ bool CCG20612View::MyStaticFunc_CheckNodeInList(const CNodeIdList& n_NodeIdList,
     if (id == nid) return true;
   }
   return false;
+}
+
+void CCG20612View::MyMathFunc_XorBuffer(std::vector<std::vector<int>>& buffer,
+                                        CPoint from, CPoint to) {
+  double dx = to.x - from.x;
+  double dy = to.y - from.y;
+
+  if (dx == 0) return;
+
+  int minx = min(from.x, to.x);
+  int basey = minx == from.x ? from.y : to.y;
+  int maxx = max(from.x, to.x);
+
+  for (int i = minx; i <= maxx; i += 1) {
+    if (i == to.x) continue;
+
+    int xnow = int((i - minx) / dx * dy + basey + 0.5);
+    buffer[i][xnow] ^= 1;
+  }
+}
+
+RECT CCG20612View::MyFunc_GetPolygonRect(const CPolygon& n_Polygon) {
+  RECT rect = {};
+  rect.left = rect.right = m_NodeMap[n_Polygon.nodeIds[0]].pos.x;
+  rect.top = rect.bottom = m_NodeMap[n_Polygon.nodeIds[0]].pos.y;
+
+  for (auto& nid : n_Polygon.nodeIds) {
+    CPoint pos = m_NodeMap[nid].pos;
+    rect.left = min(rect.left, pos.x);
+    rect.right = max(rect.right, pos.x);
+    rect.top = min(rect.top, pos.y);
+    rect.bottom = max(rect.bottom, pos.y);
+  }
+  return rect;
 }
 
 int CCG20612View::MyFunc_GetCursorOnNodeId(CPoint n_CursorPosition) {
@@ -290,7 +384,7 @@ void CCG20612View::MyFunc_ShowAllNode(CDC* pDC) {
     COLORREF color =
         ptr->second.tag == UNDEFINED ? NODE_COLOR : NODE_SELECTED_COLOR;
 
-    MyStaticFunc_DrawNode(pDC, nodePoint.pos); /* 绘制椭圆结点 */
+    MyStaticFunc_DrawNode(pDC, nodePoint.pos, color); /* 绘制椭圆结点 */
   }
 
   /* 绘制所有的文字 */
@@ -454,6 +548,8 @@ void CCG20612View::MyFunc_ShowAllPolygon(CDC* pDC) {
 
   /* 显示多边形 */
   for (auto& pr : m_PolygonMap) {
+    MyFunc_FillPolygon(pDC, pr.second); /* 涂色 */
+
     const auto& nodes = pr.second.nodeIds;
     pDC->MoveTo(m_NodeMap[nodes[0]].pos);
     for (int i = 1; i < nodes.size(); i += 1) {

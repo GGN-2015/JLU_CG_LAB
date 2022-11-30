@@ -103,9 +103,11 @@ class CCG20612View : public CView {
                                        RECT* pRect); /* 绘制椭圆算法 */
   static void MyMathFunc_DrawEllipse(CDC* pDC, RECT* pRect,
                                      COLORREF color); /* 绘制椭圆算法 */
-  static void MyStaticFunc_DrawNode(CDC*, CPoint);
+  static void MyStaticFunc_DrawNode(CDC*, CPoint, COLORREF);
   static bool MyStaticFunc_CheckNodeInList(const CNodeIdList& n_NodeIdList,
                                            int nid);
+  static void MyMathFunc_XorBuffer(std::vector<std::vector<int>>& buffer,
+                                   CPoint from, CPoint to);
 
 /* 用于报错的宏 */
 #define MyWarning(n_Msg) MyStaticFunc_Warning(__FILE__, __LINE__, n_Msg)
@@ -130,6 +132,8 @@ class CCG20612View : public CView {
   void MyFunc_DeleteNodeById(int idFrom);     /* 删除一个节点 */
   bool MyFunc_CheckSelectedByNodeId(int nid); /* 检测点是否被选中 */
   void MyFunc_AddNewPolygon();                /* 增加一个新的多边形 */
+  RECT MyFunc_GetPolygonRect(const CPolygon& n_CPolygon);
+  void MyFunc_FillPolygon(CDC* pDC, const CPolygon& n_Polygon);
 
   // 生成的消息映射函数
 
