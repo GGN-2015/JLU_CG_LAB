@@ -273,7 +273,8 @@ void CCG20612View::MyFunc_FillPolygon(CDC* pDC, const CPolygon& n_Polygon) {
       pos += topleft;
       powNow ^= buffer[x][y];
       if (powNow && NAME_CARD[y % NAME_CARD_HEIGHT][x % NAME_CARD_WIDTH]) {
-        pDC->SetPixel(pos.x, pos.y, MyMathFunc_GetRgbByHsv((x + y) / 10.0, 0.8, 0.8));
+        pDC->SetPixel(pos.x, pos.y,
+                      MyMathFunc_GetRgbByHsv((x + y) / 10.0, 0.8, 0.8));
       }
     }
   }
@@ -317,14 +318,9 @@ void CCG20612View::MyMathFunc_XorBuffer(std::vector<std::vector<int>>& buffer,
   }
 }
 
-static double mod(double a, double b) { 
-  return a - floor(a / b) * b; 
-}
+static double mod(double a, double b) { return a - floor(a / b) * b; }
 
 COLORREF CCG20612View::MyMathFunc_GetRgbByHsv(double H, double S, double V) {
-  COLORREF color;
-
-
   const double PI = 3.1415926535897932384626433832795;
   H = mod(H, 2 * PI);
   H = H / PI * 180;
@@ -354,9 +350,9 @@ COLORREF CCG20612View::MyMathFunc_GetRgbByHsv(double H, double S, double V) {
     R_ = C;
   }
 
-  int R = floor((R_ + m) * 255) + 0.5;
-  int G = floor((G_ + m) * 255) + 0.5;
-  int B = floor((B_ + m) * 255) + 0.5;
+  int R = int(floor((R_ + m) * 255) + 0.5);
+  int G = int(floor((G_ + m) * 255) + 0.5);
+  int B = int(floor((B_ + m) * 255) + 0.5);
   return RGB(R, G, B);
 }
 
@@ -848,4 +844,7 @@ void CCG20612View::OnSetcircle() { MyFunc_ChangeStateTo(STATE_SETCIRCLE); }
 
 void CCG20612View::OnSetpolygon() { MyFunc_ChangeStateTo(STATE_SETPOLYGON); }
 
-void CCG20612View::OnTogglefill() { m_FillModOn = !m_FillModOn; }
+void CCG20612View::OnTogglefill() {
+  m_FillModOn = !m_FillModOn;
+  MyFunc_ShowAllItem();
+}
