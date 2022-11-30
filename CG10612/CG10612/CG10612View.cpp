@@ -32,6 +32,7 @@ ON_WM_MOUSEMOVE()
 ON_COMMAND(ID_SETNODE, &CCG10612View::OnSetnode)
 ON_COMMAND(ID_DELETENODE, &CCG10612View::OnDeletenode)
 ON_COMMAND(ID_SETELLIPSE, &CCG10612View::OnSetellipse)
+ON_COMMAND(ID_SETCIRCLE, &CCG10612View::OnSetcircle)
 END_MESSAGE_MAP()
 
 // CCG10612View 构造/析构
@@ -43,7 +44,6 @@ CCG10612View::CCG10612View() noexcept {
 CCG10612View::~CCG10612View() {}
 
 BOOL CCG10612View::PreCreateWindow(CREATESTRUCT& cs) {
-  // TODO: 在此处通过修改
   //  CREATESTRUCT cs 来修改窗口类或样式
 
   return CView::PreCreateWindow(cs);
@@ -56,7 +56,6 @@ void CCG10612View::OnDraw(CDC* /*pDC*/) {
   ASSERT_VALID(pDoc);
   if (!pDoc) return;
 
-  // TODO: 在此处为本机数据添加绘制代码
   MyFunc_ShowAllItem();
 }
 
@@ -68,11 +67,11 @@ BOOL CCG10612View::OnPreparePrinting(CPrintInfo* pInfo) {
 }
 
 void CCG10612View::OnBeginPrinting(CDC* /*pDC*/, CPrintInfo* /*pInfo*/) {
-  // TODO: 添加额外的打印前进行的初始化过程
+  // 添加额外的打印前进行的初始化过程
 }
 
 void CCG10612View::OnEndPrinting(CDC* /*pDC*/, CPrintInfo* /*pInfo*/) {
-  // TODO: 添加打印后进行的清理过程
+  // 添加打印后进行的清理过程
 }
 
 // CCG10612View 诊断
@@ -102,6 +101,10 @@ void CCG10612View::MyStaticFunc_Warning(const char* n_File, int n_Line,
                                         const char* n_Msg) {
   fprintf(stderr, "Warning: %s\n - line %d: %s\n", n_File, n_Line, n_Msg);
   fflush(stderr);
+}
+
+void CCG10612View::MyStaticFunc_DrawEllipse(CDC* pDC, RECT* pRect) {
+  pDC->Ellipse(pRect);
 }
 
 int CCG10612View::MyFunc_GetCursorOnNodeId(CPoint n_CursorPosition) {
@@ -171,6 +174,7 @@ void CCG10612View::MyFunc_ShowAllItem() {
 
   // TODO: 显示所有对象
 
+  MyFunc_ShowAllCircle(&dc);  /* 绘制所有圆 */
   MyFunc_ShowAllEllipse(&dc); /* 绘制所有椭圆 */
   MyFunc_ShowAllNode(&dc);    /* 绘制所有结点 */
 
@@ -285,17 +289,67 @@ void CCG10612View::MyFunc_ShowAllEllipse(CDC* pDC) {
     rect.right = max(pA.x, pB.x);
     rect.top = min(pA.y, pB.y);
     rect.bottom = max(pA.y, pB.y);
-    pDC->Ellipse(&rect);
+    MyStaticFunc_DrawEllipse(pDC, &rect);
   }
 }
 
 void CCG10612View::MyFunc_AddEllipseByNodeId(int id1, int id2) {
+  assert(id1 != id2);
+
   int eid = ++m_MaxObjId;
   CEllipse tmp;
   tmp.ellipseId = eid;
   tmp.nodeIdA = id1;
   tmp.nodeIdB = id2;
+
   m_EllipseSet[eid] = tmp;
+}
+
+void CCG10612View::MyFunc_AddCircleByNodeId(int idC, int idR) {
+  assert(idC != idR);
+  int circleId = ++m_MaxObjId;
+
+  CCircle tmp;
+  tmp.circleId = circleId;
+  tmp.nodeIdC = idC;
+  tmp.nodeIdR = idR;
+
+  m_CircleSet[circleId] = tmp;
+}
+
+void CCG10612View::MyFunc_ShowAllCircle(CDC* pDC) {
+  /* 找到不存在的圆 */
+  std::vector<int> delList;
+  for (auto& pr : m_CircleSet) {
+    int id = pr.first;
+    auto& circle = pr.second;
+    if (m_NodeMap.count(circle.nodeIdC) <= 0 ||
+        m_NodeMap.count(circle.nodeIdR) <= 0) { /* 圆不存在 */
+      delList.push_back(id);
+    }
+  }
+
+  /* 删除不存在的圆 */
+  for (auto id : delList) {
+    m_CircleSet.erase(id);
+  }
+
+  /* 绘制存在的椭圆 */
+  for (auto& pr : m_CircleSet) {
+    int id = pr.first;
+    auto& circle = pr.second;
+    CPoint pA = m_NodeMap[circle.nodeIdC].pos,
+           pB = m_NodeMap[circle.nodeIdR].pos;
+
+    double dR = MyStaticFunc_GetPointDistance(pA, pB);
+
+    RECT rect;
+    rect.left = int(pA.x - dR + 0.5);
+    rect.right = int(pA.x + dR + 0.5);
+    rect.top = int(pA.y - dR + 0.5);
+    rect.bottom = int(pA.y + dR + 0.5);
+    MyStaticFunc_DrawEllipse(pDC, &rect);
+  }
 }
 
 void CCG10612View::OnLButtonDown(UINT nFlags, CPoint point) {
@@ -318,6 +372,8 @@ void CCG10612View::OnLButtonDown(UINT nFlags, CPoint point) {
       /* 左键按下时不响应，左键抬起时响应 */
       break;
     case STATE_SETELLIPSE:
+      break;
+    case STATE_SETCIRCLE:
       break;
       // TODO: 填充其他的自动机切换
   }
@@ -356,6 +412,25 @@ void CCG10612View::OnLButtonUp(UINT nFlags, CPoint point) {
       if (m_NodeIdList.size() >= 2) { /* 控制点选择结束 */
         if (m_NodeIdList[0] != m_NodeIdList[1]) {
           MyFunc_AddEllipseByNodeId(m_NodeIdList[0], m_NodeIdList[1]);
+        } else {
+          MessageBox(L"请选择两个不同的结点作为椭圆的控制点！", L"警告",
+                     MB_ICONWARNING);
+        }
+        MyFunc_ChangeStateTo(STATE_FREE);
+      }
+      MyFunc_ShowAllItem();
+      break;
+    case STATE_SETCIRCLE:
+      if (MyFunc_CheckCursorOnNode(point)) {
+        int nodeId = MyFunc_GetCursorOnNodeId(point);
+        m_NodeIdList.push_back(nodeId);
+      }
+      if (m_NodeIdList.size() >= 2) { /* 控制点选择结束 */
+        if (m_NodeIdList[0] != m_NodeIdList[1]) {
+          MyFunc_AddCircleByNodeId(m_NodeIdList[0], m_NodeIdList[1]);
+        } else {
+          MessageBox(L"请选择两个不同的结点作为圆的控制点！", L"警告",
+                     MB_ICONWARNING);
         }
         MyFunc_ChangeStateTo(STATE_FREE);
       }
@@ -404,7 +479,6 @@ void CMyNode::GetRect(RECT* rect) const {
   rect->bottom = pos.y + NODE_RADIUS;
 }
 
-void CCG10612View::OnSetellipse() {
-  // TODO: 在此添加命令处理程序代码
-  MyFunc_ChangeStateTo(STATE_SETELLIPSE);
-}
+void CCG10612View::OnSetellipse() { MyFunc_ChangeStateTo(STATE_SETELLIPSE); }
+
+void CCG10612View::OnSetcircle() { MyFunc_ChangeStateTo(STATE_SETCIRCLE); }

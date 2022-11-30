@@ -7,6 +7,10 @@
 #include <map>
 #include <vector>
 
+struct CCircle {
+  int circleId;         /* 圆 ID */
+  int nodeIdC, nodeIdR; /* 根据圆心和半径绘制圆 */
+};
 struct CEllipse {
   int ellipseId;        /* 椭圆 ID */
   int nodeIdA, nodeIdB; /* 根据两个角控制点绘制椭圆 */
@@ -20,6 +24,7 @@ struct CMyNode {
 typedef std::map<int, CMyNode> CPointMap;    /* 点坐标序列 */
 typedef std::vector<int> CNodeIdList;        /* 选中的结点 ID 序列 */
 typedef std::map<int, CEllipse> CEllipseMap; /* 椭圆集合 */
+typedef std::map<int, CCircle> CCCircleMap;  /* 椭圆集合 */
 
 /* ---------- 我的常量 ---------- */
 #define NODE_RADIUS (5)                    /* 结点半径*/
@@ -32,6 +37,7 @@ typedef std::map<int, CEllipse> CEllipseMap; /* 椭圆集合 */
 #define STATE_MOVENODE (2)   /* 移动节点 */
 #define STATE_DELETENODE (3) /* 移动节点 */
 #define STATE_SETELLIPSE (4) /* 绘制椭圆 */
+#define STATE_SETCIRCLE (5)  /* 绘制圆形 */
 
 #define BACKGROUND_COLOR RGB(255, 255, 255) /* 设置背景颜色 */
 #define UNDEFINED (-1)
@@ -76,12 +82,15 @@ class CCG10612View : public CView {
   CPointMap m_NodeMap;      /* 结点列表 */
   CNodeIdList m_NodeIdList; /* 选中的结点 ID 列表 */
   CEllipseMap m_EllipseSet; /* 椭圆集合 */
+  CCCircleMap m_CircleSet;  /* 圆集合 */
 
   /* ---------- 我的函数 ---------- */
 
   static double MyStaticFunc_GetPointDistance(CPoint, CPoint);
   static void MyStaticFunc_Warning(const char* n_File, int n_Line,
                                    const char* n_Msg);
+  static void MyStaticFunc_DrawEllipse(CDC* pDC,
+                                       RECT* pRect); /* 绘制椭圆算法 */
 
 /* 用于报错的宏 */
 #define MyWarning(n_Msg) MyStaticFunc_Warning(__FILE__, __LINE__, n_Msg)
@@ -97,6 +106,8 @@ class CCG10612View : public CView {
   void MyFunc_SetTagsOnNode();             /* 根据 m_NodeIdList 设置 tag */
   void MyFunc_ShowAllEllipse(CDC* pDC);    /* 显示所有椭圆 */
   void MyFunc_AddEllipseByNodeId(int id1, int id2); /* 增加新的椭圆*/
+  void MyFunc_AddCircleByNodeId(int id1, int id2);  /* 增加新的圆 */
+  void MyFunc_ShowAllCircle(CDC* pDC);              /* 绘制所有圆 */
 
   // 生成的消息映射函数
  protected:
@@ -108,6 +119,7 @@ class CCG10612View : public CView {
   afx_msg void OnSetnode();
   afx_msg void OnDeletenode();
   afx_msg void OnSetellipse();
+  afx_msg void OnSetcircle();
 };
 
 #ifndef _DEBUG  // CG10612View.cpp 中的调试版本
