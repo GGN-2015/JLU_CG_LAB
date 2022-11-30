@@ -104,7 +104,23 @@ void CCG10612View::MyStaticFunc_Warning(const char* n_File, int n_Line,
 }
 
 void CCG10612View::MyStaticFunc_DrawEllipse(CDC* pDC, RECT* pRect) {
+  CBrush* pBrush =
+      CBrush::FromHandle((HBRUSH)GetStockObject(NULL_BRUSH)); /* 空刷子 */
+  CBrush* oldBrush = pDC->SelectObject(pBrush);
+
   pDC->Ellipse(pRect);
+
+  pDC->SelectObject(oldBrush);
+}
+
+void CCG10612View::MyStaticFunc_DrawNode(CDC* pDC, CPoint pos) {
+  RECT rect;
+  rect.left = pos.x - NODE_RADIUS;
+  rect.right = pos.x + NODE_RADIUS;
+  rect.top = pos.y - NODE_RADIUS;
+  rect.bottom = pos.y + NODE_RADIUS;
+
+  pDC->Ellipse(&rect);
 }
 
 int CCG10612View::MyFunc_GetCursorOnNodeId(CPoint n_CursorPosition) {
@@ -134,7 +150,7 @@ void CCG10612View::MyFunc_TestAndDeleteNode(int nodeId) {
   }
 }
 
-void CCG10612View::MyFunc_AddNewNodeAt(CPoint point) {
+int CCG10612View::MyFunc_AddNewNodeAt(CPoint point) {
   fprintf(stderr, "[CCG10612View::MyFunc_AddNewNodeAt] point = {%d,%d}\n",
           point.x, point.y);
   int nodeId = ++m_MaxObjId;
@@ -143,6 +159,8 @@ void CCG10612View::MyFunc_AddNewNodeAt(CPoint point) {
   tmp.pos = point;
   tmp.tag = UNDEFINED; /* undefined. */
   m_NodeMap[nodeId] = tmp;
+
+  return nodeId;
 }
 
 void CCG10612View::MyFunc_PutDownMovingNode() {
@@ -195,16 +213,11 @@ void CCG10612View::MyFunc_ShowAllNode(CDC* pDC) {
   /* 绘制所有的结点 */
   for (auto ptr = m_NodeMap.rbegin(); ptr != m_NodeMap.rend(); ptr++) {
     const auto& nodePoint = ptr->second;
-
-    /* 获取矩形位置 */
-    RECT rect;
-    nodePoint.GetRect(&rect);
-
     /* 选择合适的画笔 */
     CPen* oldPen =
         pDC->SelectObject(nodePoint.tag == UNDEFINED ? &nodePen : &selectedPen);
 
-    pDC->Ellipse(&rect); /* 绘制椭圆结点 */
+    MyStaticFunc_DrawNode(pDC, nodePoint.pos); /* 绘制椭圆结点 */
     pDC->SelectObject(oldPen);
   }
 
@@ -234,6 +247,7 @@ void CCG10612View::MyFunc_ShowAllNode(CDC* pDC) {
 void CCG10612View::MyFunc_ChangeStateTo(int STATE_TO) {
   m_State = STATE_TO;
   m_NodeIdList.clear();
+  m_Merge = false;
   for (auto& pr : m_NodeMap) {
     auto& node = pr.second;
     node.tag = UNDEFINED; /* < 0, undefined. */
@@ -352,6 +366,58 @@ void CCG10612View::MyFunc_ShowAllCircle(CDC* pDC) {
   }
 }
 
+void CCG10612View::MyFunc_PutDownMovingNodeAndMerge(CPoint point) {
+  int nid = UNDEFINED;
+  for (auto& pr : m_NodeMap) {
+    auto id = pr.first;
+    const auto& node = pr.second;
+    if (id == m_PickUpNodeId) continue;
+    if (MyStaticFunc_GetPointDistance(node.pos, point) <= NODE_RADIUS) {
+      nid = id;
+      break;
+    }
+  }
+  if (nid != UNDEFINED) {
+    MyFunc_NodeMergeInto(m_PickUpNodeId, nid);
+    m_PickUpNodeId = UNDEFINED;
+  }
+}
+
+void CCG10612View::MyFunc_NodeMergeInto(int idFrom, int idTo) {
+  /* 对圆形合并 */
+  for (auto& pr : m_CircleSet) {
+    if (pr.second.nodeIdR == idFrom) {
+      pr.second.nodeIdR = idTo;
+    }
+  }
+
+  /* 对椭圆合并 */
+  for (auto& pr : m_EllipseSet) {
+    if (pr.second.nodeIdB == idFrom) {
+      pr.second.nodeIdB = idTo;
+    }
+  }
+
+  // TODO: 对所有图形实现合并
+
+  MyFunc_DeleteNodeById(idFrom);
+}
+
+int CCG10612View::MyFunc_GetOrCreateNode(CPoint point) {
+  int nid1 = UNDEFINED;
+  if (!MyFunc_CheckCursorOnNode(point)) {
+    nid1 = MyFunc_AddNewNodeAt(point); /* 新建一个结点 */
+  } else {
+    nid1 = MyFunc_GetCursorOnNodeId(point);
+  }
+  return nid1;
+}
+
+void CCG10612View::MyFunc_DeleteNodeById(int idFrom) {
+  m_NodeMap.erase(idFrom);
+  MyFunc_ShowAllItem();
+}
+
 void CCG10612View::OnLButtonDown(UINT nFlags, CPoint point) {
   SetCapture(); /* 跟踪鼠标位置 */
   m_LButtonDown = true;
@@ -371,9 +437,21 @@ void CCG10612View::OnLButtonDown(UINT nFlags, CPoint point) {
     case STATE_DELETENODE:
       /* 左键按下时不响应，左键抬起时响应 */
       break;
-    case STATE_SETELLIPSE:
-      break;
+    case STATE_SETELLIPSE: {
+      int nid1 = MyFunc_GetOrCreateNode(point);
+      int nid2 = MyFunc_AddNewNodeAt(point); /* 新建另一个节点 */
+      MyFunc_AddEllipseByNodeId(nid1, nid2);
+      m_PickUpNodeId = nid2;
+      m_State = STATE_MOVENODE; /* 切换到移动状态 */
+      m_Merge = true;
+    } break;
     case STATE_SETCIRCLE:
+      int nid1 = MyFunc_GetOrCreateNode(point);
+      int nid2 = MyFunc_AddNewNodeAt(point); /* 新建另一个节点 */
+      MyFunc_AddCircleByNodeId(nid1, nid2);
+      m_PickUpNodeId = nid2;
+      m_State = STATE_MOVENODE; /* 切换到移动状态 */
+      m_Merge = true;
       break;
       // TODO: 填充其他的自动机切换
   }
@@ -393,7 +471,11 @@ void CCG10612View::OnLButtonUp(UINT nFlags, CPoint point) {
       MyFunc_ChangeStateTo(STATE_FREE);
       break;
     case STATE_MOVENODE: /* 放下结点 */
-      MyFunc_PutDownMovingNode();
+      if (!m_Merge) {
+        MyFunc_PutDownMovingNode();
+      } else {
+        MyFunc_PutDownMovingNodeAndMerge(point);
+      }
       MyFunc_ChangeStateTo(STATE_FREE);
       break;
     case STATE_DELETENODE:
@@ -405,36 +487,10 @@ void CCG10612View::OnLButtonUp(UINT nFlags, CPoint point) {
       MyFunc_ShowAllItem();
       break;
     case STATE_SETELLIPSE:
-      if (MyFunc_CheckCursorOnNode(point)) {
-        int nodeId = MyFunc_GetCursorOnNodeId(point);
-        m_NodeIdList.push_back(nodeId);
-      }
-      if (m_NodeIdList.size() >= 2) { /* 控制点选择结束 */
-        if (m_NodeIdList[0] != m_NodeIdList[1]) {
-          MyFunc_AddEllipseByNodeId(m_NodeIdList[0], m_NodeIdList[1]);
-        } else {
-          MessageBox(L"请选择两个不同的结点作为椭圆的控制点！", L"警告",
-                     MB_ICONWARNING);
-        }
-        MyFunc_ChangeStateTo(STATE_FREE);
-      }
-      MyFunc_ShowAllItem();
+      MyWarning("[CCG10612View::OnLButtonUp] m_State = STATE_SETELLIPSE.");
       break;
     case STATE_SETCIRCLE:
-      if (MyFunc_CheckCursorOnNode(point)) {
-        int nodeId = MyFunc_GetCursorOnNodeId(point);
-        m_NodeIdList.push_back(nodeId);
-      }
-      if (m_NodeIdList.size() >= 2) { /* 控制点选择结束 */
-        if (m_NodeIdList[0] != m_NodeIdList[1]) {
-          MyFunc_AddCircleByNodeId(m_NodeIdList[0], m_NodeIdList[1]);
-        } else {
-          MessageBox(L"请选择两个不同的结点作为圆的控制点！", L"警告",
-                     MB_ICONWARNING);
-        }
-        MyFunc_ChangeStateTo(STATE_FREE);
-      }
-      MyFunc_ShowAllItem();
+      MyWarning("[CCG10612View::OnLButtonUp] m_State = STATE_SETCIRCLE.");
       break;
       // TODO: 鼠标抬起事件
   }

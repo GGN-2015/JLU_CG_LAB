@@ -78,6 +78,7 @@ class CCG10612View : public CView {
   int m_State;              /* 自动机状态 */
   int m_PickUpNodeId;       /* 当前正在被移动的 NodeId */
   bool m_LButtonDown;       /* 鼠标左键是否按下 */
+  bool m_Merge;             /* 是否对目标点进行合并 */
   CPoint m_CursorPos;       /* 鼠标位置 */
   CPointMap m_NodeMap;      /* 结点列表 */
   CNodeIdList m_NodeIdList; /* 选中的结点 ID 列表 */
@@ -91,6 +92,7 @@ class CCG10612View : public CView {
                                    const char* n_Msg);
   static void MyStaticFunc_DrawEllipse(CDC* pDC,
                                        RECT* pRect); /* 绘制椭圆算法 */
+  static void MyStaticFunc_DrawNode(CDC*, CPoint);
 
 /* 用于报错的宏 */
 #define MyWarning(n_Msg) MyStaticFunc_Warning(__FILE__, __LINE__, n_Msg)
@@ -98,7 +100,7 @@ class CCG10612View : public CView {
   int MyFunc_GetCursorOnNodeId(CPoint n_CursorPosition);
   bool MyFunc_CheckCursorOnNode(CPoint n_CursorPosition);
   void MyFunc_TestAndDeleteNode(int nodeId); /* 检测结点是否在左上角之外 */
-  void MyFunc_AddNewNodeAt(CPoint point);  /* 防止新节点 */
+  int MyFunc_AddNewNodeAt(CPoint point);   /* 防止新节点 */
   void MyFunc_PutDownMovingNode();         /* 放下正在移动的节点 */
   void MyFunc_ShowAllItem();               /* 显示所有对象 */
   void MyFunc_ShowAllNode(CDC* pDC);       /* 显示所有结点 */
@@ -108,6 +110,10 @@ class CCG10612View : public CView {
   void MyFunc_AddEllipseByNodeId(int id1, int id2); /* 增加新的椭圆*/
   void MyFunc_AddCircleByNodeId(int id1, int id2);  /* 增加新的圆 */
   void MyFunc_ShowAllCircle(CDC* pDC);              /* 绘制所有圆 */
+  void MyFunc_PutDownMovingNodeAndMerge(CPoint point);
+  void MyFunc_NodeMergeInto(int idFrom, int idTo); /* 结点合并 */
+  int MyFunc_GetOrCreateNode(CPoint point); /* 获取一个点或新建一个点 */
+  void MyFunc_DeleteNodeById(int idFrom); /* 删除一个节点 */
 
   // 生成的消息映射函数
  protected:
