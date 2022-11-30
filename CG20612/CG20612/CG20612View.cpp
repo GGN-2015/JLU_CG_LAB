@@ -33,6 +33,7 @@ ON_COMMAND(ID_SETNODE, &CCG20612View::OnSetnode)
 ON_COMMAND(ID_DELETENODE, &CCG20612View::OnDeletenode)
 ON_COMMAND(ID_SETELLIPSE, &CCG20612View::OnSetellipse)
 ON_COMMAND(ID_SETCIRCLE, &CCG20612View::OnSetcircle)
+ON_COMMAND(ID_SETPOLYGON, &CCG20612View::OnSetpolygon)
 END_MESSAGE_MAP()
 
 // CCG20612View 构造/析构
@@ -191,6 +192,14 @@ void CCG20612View::MyStaticFunc_DrawNode(CDC* pDC, CPoint pos) {
   MyMathFunc_DrawEllipse(pDC, &rect, NODE_COLOR);
 }
 
+bool CCG20612View::MyStaticFunc_CheckNodeInList(const CNodeIdList& n_NodeIdList,
+                                                int nid) {
+  for (const auto& id : n_NodeIdList) {
+    if (id == nid) return true;
+  }
+  return false;
+}
+
 int CCG20612View::MyFunc_GetCursorOnNodeId(CPoint n_CursorPosition) {
   for (auto& pr : m_NodeMap) {
     const auto& nodePos = pr.second;
@@ -260,6 +269,7 @@ void CCG20612View::MyFunc_ShowAllItem() {
 
   // TODO: 显示所有对象
 
+  MyFunc_ShowAllPolygon(&dc); /* 绘制所有多边形 */
   MyFunc_ShowAllCircle(&dc);  /* 绘制所有圆 */
   MyFunc_ShowAllEllipse(&dc); /* 绘制所有椭圆 */
   MyFunc_ShowAllNode(&dc);    /* 绘制所有结点 */
@@ -305,7 +315,7 @@ void CCG20612View::MyFunc_ShowAllNode(CDC* pDC) {
 
 void CCG20612View::MyFunc_ChangeStateTo(int STATE_TO) {
   m_State = STATE_TO;
-  m_NodeIdList.clear();
+  m_SelectedNodeIdList.clear();
   m_Merge = false;
   for (auto& pr : m_NodeMap) {
     auto& node = pr.second;
@@ -316,8 +326,8 @@ void CCG20612View::MyFunc_ChangeStateTo(int STATE_TO) {
 void CCG20612View::MyFunc_SetTagsOnNode() {
   std::map<int, int> idToTag;
 
-  for (int i = 0; i < m_NodeIdList.size(); i += 1) {
-    int id = m_NodeIdList[i];
+  for (int i = 0; i < m_SelectedNodeIdList.size(); i += 1) {
+    int id = m_SelectedNodeIdList[i];
     idToTag[id] = i;
   }
 
@@ -425,6 +435,18 @@ void CCG20612View::MyFunc_ShowAllCircle(CDC* pDC) {
   }
 }
 
+void CCG20612View::MyFunc_ShowAllPolygon(CDC* pDC) {
+  for (auto& pr : m_PolygonMap) {
+    /* 显示一个多边形 */
+    const auto& nodes = pr.second.nodeIds;
+    pDC->MoveTo(m_NodeMap[nodes[0]].pos);
+    for (int i = 1; i < nodes.size(); i += 1) {
+      pDC->LineTo(m_NodeMap[nodes[i]].pos);
+    }
+    pDC->LineTo(m_NodeMap[nodes[0]].pos);
+  }
+}
+
 void CCG20612View::MyFunc_PutDownMovingNodeAndMerge(CPoint point) {
   int nid = UNDEFINED;
   for (auto& pr : m_NodeMap) {
@@ -477,6 +499,20 @@ void CCG20612View::MyFunc_DeleteNodeById(int idFrom) {
   MyFunc_ShowAllItem();
 }
 
+bool CCG20612View::MyFunc_CheckSelectedByNodeId(int nid) {
+  return MyStaticFunc_CheckNodeInList(m_SelectedNodeIdList, nid);
+}
+
+void CCG20612View::MyFunc_AddNewPolygon() {
+  int npId = ++m_MaxObjId;
+
+  CPolygon tmp;
+  tmp.polygonId = npId;
+  tmp.nodeIds = m_SelectedNodeIdList;
+
+  m_PolygonMap[npId] = tmp;
+}
+
 void CCG20612View::OnLButtonDown(UINT nFlags, CPoint point) {
   SetCapture(); /* 跟踪鼠标位置 */
   m_LButtonDown = true;
@@ -504,16 +540,20 @@ void CCG20612View::OnLButtonDown(UINT nFlags, CPoint point) {
       m_State = STATE_MOVENODE; /* 切换到移动状态 */
       m_Merge = true;
     } break;
-    case STATE_SETCIRCLE:
+    case STATE_SETCIRCLE: {
       int nid1 = MyFunc_GetOrCreateNode(point);
       int nid2 = MyFunc_AddNewNodeAt(point); /* 新建另一个节点 */
       MyFunc_AddCircleByNodeId(nid1, nid2);
       m_PickUpNodeId = nid2;
       m_State = STATE_MOVENODE; /* 切换到移动状态 */
       m_Merge = true;
+    } break;
+    case STATE_SETPOLYGON:
       break;
       // TODO: 填充其他的自动机切换
   }
+
+  MyFunc_ShowAllItem();
   CView::OnLButtonDown(nFlags, point);
 }
 
@@ -526,7 +566,6 @@ void CCG20612View::OnLButtonUp(UINT nFlags, CPoint point) {
       break;
     case STATE_SETNODE: /* 每次放下一个点就重新恢复自由状态 */
       MyFunc_AddNewNodeAt(point);
-      MyFunc_ShowAllItem();
       MyFunc_ChangeStateTo(STATE_FREE);
       break;
     case STATE_MOVENODE: /* 放下结点 */
@@ -543,7 +582,6 @@ void CCG20612View::OnLButtonUp(UINT nFlags, CPoint point) {
         m_NodeMap.erase(nodeId);
       }
       MyFunc_ChangeStateTo(STATE_FREE);
-      MyFunc_ShowAllItem();
       break;
     case STATE_SETELLIPSE:
       MyWarning("[CCG20612View::OnLButtonUp] m_State = STATE_SETELLIPSE.");
@@ -551,8 +589,22 @@ void CCG20612View::OnLButtonUp(UINT nFlags, CPoint point) {
     case STATE_SETCIRCLE:
       MyWarning("[CCG20612View::OnLButtonUp] m_State = STATE_SETCIRCLE.");
       break;
+    case STATE_SETPOLYGON: {
+      int nid = MyFunc_GetOrCreateNode(point);
+      if (m_SelectedNodeIdList.size() >= 3 &&
+          (m_SelectedNodeIdList[0] == nid ||
+           m_SelectedNodeIdList[m_SelectedNodeIdList.size() - 1] ==
+               nid)) {          /* 结束当前多边形的绘制 */
+        MyFunc_AddNewPolygon(); /* 新建多边形 */
+        MyFunc_ChangeStateTo(STATE_FREE);
+      } else if (!MyFunc_CheckSelectedByNodeId(nid)) {
+        m_SelectedNodeIdList.push_back(nid); /* 增加新的结点 */
+      }
+    } break;
       // TODO: 鼠标抬起事件
   }
+
+  MyFunc_ShowAllItem();
   CView::OnLButtonUp(nFlags, point);
 }
 
@@ -568,7 +620,6 @@ void CCG20612View::OnMouseMove(UINT nFlags, CPoint point) {
       break;
     case STATE_MOVENODE:
       m_NodeMap[m_PickUpNodeId].pos = point; /* 修改结点坐标 */
-      MyFunc_ShowAllItem();
       break;
     case STATE_DELETENODE:
       break;
@@ -576,6 +627,8 @@ void CCG20612View::OnMouseMove(UINT nFlags, CPoint point) {
       break;
       // TODO: MouseMove 事件处理
   }
+
+  MyFunc_ShowAllItem();
   CView::OnMouseMove(nFlags, point);
 }
 
@@ -597,3 +650,5 @@ void CMyNode::GetRect(RECT* rect) const {
 void CCG20612View::OnSetellipse() { MyFunc_ChangeStateTo(STATE_SETELLIPSE); }
 
 void CCG20612View::OnSetcircle() { MyFunc_ChangeStateTo(STATE_SETCIRCLE); }
+
+void CCG20612View::OnSetpolygon() { MyFunc_ChangeStateTo(STATE_SETPOLYGON); }

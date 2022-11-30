@@ -7,6 +7,12 @@
 #include <map>
 #include <vector>
 
+typedef std::vector<int> CNodeIdList; /* 选中的结点 ID 序列 */
+
+struct CPolygon {
+  int polygonId;
+  CNodeIdList nodeIds;
+};
 struct CCircle {
   int circleId;         /* 圆 ID */
   int nodeIdC, nodeIdR; /* 根据圆心和半径绘制圆 */
@@ -22,9 +28,9 @@ struct CMyNode {
   void GetRect(RECT*) const; /* 获得矩形范围 */
 };
 typedef std::map<int, CMyNode> CPointMap;    /* 点坐标序列 */
-typedef std::vector<int> CNodeIdList;        /* 选中的结点 ID 序列 */
 typedef std::map<int, CEllipse> CEllipseMap; /* 椭圆集合 */
-typedef std::map<int, CCircle> CCCircleMap;  /* 椭圆集合 */
+typedef std::map<int, CCircle> CCircleMap;   /* 椭圆集合 */
+typedef std::map<int, CPolygon> CPolygonMap; /* 多边形集合 */
 
 /* ---------- 我的常量 ---------- */
 #define NODE_RADIUS (5)                    /* 结点半径*/
@@ -39,6 +45,7 @@ typedef std::map<int, CCircle> CCCircleMap;  /* 椭圆集合 */
 #define STATE_DELETENODE (3) /* 移动节点 */
 #define STATE_SETELLIPSE (4) /* 绘制椭圆 */
 #define STATE_SETCIRCLE (5)  /* 绘制圆形 */
+#define STATE_SETPOLYGON (6) /* 绘制多边形 */
 
 #define BACKGROUND_COLOR RGB(255, 255, 255) /* 设置背景颜色 */
 #define UNDEFINED (-1)
@@ -75,16 +82,17 @@ class CCG20612View : public CView {
  protected:
   /* ---------- 我的变量 ---------- */
 
-  int m_MaxObjId = 0;       /* 最大结点编号 */
-  int m_State;              /* 自动机状态 */
-  int m_PickUpNodeId;       /* 当前正在被移动的 NodeId */
-  bool m_LButtonDown;       /* 鼠标左键是否按下 */
-  bool m_Merge;             /* 是否对目标点进行合并 */
-  CPoint m_CursorPos;       /* 鼠标位置 */
-  CPointMap m_NodeMap;      /* 结点列表 */
-  CNodeIdList m_NodeIdList; /* 选中的结点 ID 列表 */
-  CEllipseMap m_EllipseSet; /* 椭圆集合 */
-  CCCircleMap m_CircleSet;  /* 圆集合 */
+  int m_MaxObjId = 0;               /* 最大结点编号 */
+  int m_State;                      /* 自动机状态 */
+  int m_PickUpNodeId;               /* 当前正在被移动的 NodeId */
+  bool m_LButtonDown;               /* 鼠标左键是否按下 */
+  bool m_Merge;                     /* 是否对目标点进行合并 */
+  CPoint m_CursorPos;               /* 鼠标位置 */
+  CPointMap m_NodeMap;              /* 结点列表 */
+  CNodeIdList m_SelectedNodeIdList; /* 选中的结点 ID 列表 */
+  CEllipseMap m_EllipseSet;         /* 椭圆集合 */
+  CCircleMap m_CircleSet;           /* 圆集合 */
+  CPolygonMap m_PolygonMap;         /* 多边形集合 */
 
   /* ---------- 我的函数 ---------- */
 
@@ -96,6 +104,8 @@ class CCG20612View : public CView {
   static void MyMathFunc_DrawEllipse(CDC* pDC, RECT* pRect,
                                      COLORREF color); /* 绘制椭圆算法 */
   static void MyStaticFunc_DrawNode(CDC*, CPoint);
+  static bool MyStaticFunc_CheckNodeInList(const CNodeIdList& n_NodeIdList,
+                                           int nid);
 
 /* 用于报错的宏 */
 #define MyWarning(n_Msg) MyStaticFunc_Warning(__FILE__, __LINE__, n_Msg)
@@ -108,17 +118,21 @@ class CCG20612View : public CView {
   void MyFunc_ShowAllItem();               /* 显示所有对象 */
   void MyFunc_ShowAllNode(CDC* pDC);       /* 显示所有结点 */
   void MyFunc_ChangeStateTo(int STATE_TO); /* 设置新状态 */
-  void MyFunc_SetTagsOnNode();             /* 根据 m_NodeIdList 设置 tag */
-  void MyFunc_ShowAllEllipse(CDC* pDC);    /* 显示所有椭圆 */
+  void MyFunc_SetTagsOnNode(); /* 根据 m_SelectedNodeIdList 设置 tag */
+  void MyFunc_ShowAllEllipse(CDC* pDC);             /* 显示所有椭圆 */
   void MyFunc_AddEllipseByNodeId(int id1, int id2); /* 增加新的椭圆*/
   void MyFunc_AddCircleByNodeId(int id1, int id2);  /* 增加新的圆 */
   void MyFunc_ShowAllCircle(CDC* pDC);              /* 绘制所有圆 */
+  void MyFunc_ShowAllPolygon(CDC* pDC);             /* 绘制所有多边形 */
   void MyFunc_PutDownMovingNodeAndMerge(CPoint point);
   void MyFunc_NodeMergeInto(int idFrom, int idTo); /* 结点合并 */
   int MyFunc_GetOrCreateNode(CPoint point); /* 获取一个点或新建一个点 */
-  void MyFunc_DeleteNodeById(int idFrom); /* 删除一个节点 */
+  void MyFunc_DeleteNodeById(int idFrom);     /* 删除一个节点 */
+  bool MyFunc_CheckSelectedByNodeId(int nid); /* 检测点是否被选中 */
+  void MyFunc_AddNewPolygon();                /* 增加一个新的多边形 */
 
   // 生成的消息映射函数
+
  protected:
   DECLARE_MESSAGE_MAP()
  public:
@@ -129,6 +143,7 @@ class CCG20612View : public CView {
   afx_msg void OnDeletenode();
   afx_msg void OnSetellipse();
   afx_msg void OnSetcircle();
+  afx_msg void OnSetpolygon();
 };
 
 #ifndef _DEBUG  // CG20612View.cpp 中的调试版本

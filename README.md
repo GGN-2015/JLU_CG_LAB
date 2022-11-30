@@ -40,3 +40,6 @@ memBmp.CreateCompatibleBitmap(&dc, zcRect.Width(),
 CBitmap* OldBmp = dc.SelectObject(&memBmp);
 ```
 
+## CG2-
+
+多边形扫描转换的边填充算法，
