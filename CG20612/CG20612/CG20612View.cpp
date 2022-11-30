@@ -34,9 +34,47 @@ ON_COMMAND(ID_DELETENODE, &CCG20612View::OnDeletenode)
 ON_COMMAND(ID_SETELLIPSE, &CCG20612View::OnSetellipse)
 ON_COMMAND(ID_SETCIRCLE, &CCG20612View::OnSetcircle)
 ON_COMMAND(ID_SETPOLYGON, &CCG20612View::OnSetpolygon)
+ON_COMMAND(ID_TOGGLEFILL, &CCG20612View::OnTogglefill)
 END_MESSAGE_MAP()
 
 // CCG20612View 构造/析构
+
+#define NAME_CARD_HEIGHT (16)
+#define NAME_CARD_WIDTH (32)
+static const int NAME_CARD[NAME_CARD_HEIGHT][NAME_CARD_WIDTH] = {
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1,
+     0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0},
+    {0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1,
+     0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0},
+    {0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0,
+     0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0},
+    {0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0,
+     0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0},
+    {0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0,
+     0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0},
+    {0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1,
+     0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0},
+    {0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1,
+     0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0},
+    {0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
+     0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
+     0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1,
+     0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1,
+     0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0},
+    {0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1,
+     0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+};
 
 CCG20612View::CCG20612View() noexcept {
   // TODO: 在此处添加构造代码
@@ -234,8 +272,8 @@ void CCG20612View::MyFunc_FillPolygon(CDC* pDC, const CPolygon& n_Polygon) {
       CPoint pos(x, y);
       pos += topleft;
       powNow ^= buffer[x][y];
-      if (powNow) {
-        pDC->SetPixel(pos.x, pos.y, RGB(0, 255, 0));
+      if (powNow && NAME_CARD[y % NAME_CARD_HEIGHT][x % NAME_CARD_WIDTH]) {
+        pDC->SetPixel(pos.x, pos.y, MyMathFunc_GetRgbByHsv((x + y) / 10.0, 0.8, 0.8));
       }
     }
   }
@@ -277,6 +315,49 @@ void CCG20612View::MyMathFunc_XorBuffer(std::vector<std::vector<int>>& buffer,
     int xnow = int((i - minx) / dx * dy + basey + 0.5);
     buffer[i][xnow] ^= 1;
   }
+}
+
+static double mod(double a, double b) { 
+  return a - floor(a / b) * b; 
+}
+
+COLORREF CCG20612View::MyMathFunc_GetRgbByHsv(double H, double S, double V) {
+  COLORREF color;
+
+
+  const double PI = 3.1415926535897932384626433832795;
+  H = mod(H, 2 * PI);
+  H = H / PI * 180;
+
+  double C = V * S;
+  double X = C * (1 - abs(mod(H / 60, 2) - 1));
+  double m = V - C;
+  double R_ = 0, G_ = 0, B_ = 0;
+
+  if (0 <= H && H < 60) {
+    R_ = C;
+    G_ = X;
+  } else if (60 <= H && H < 120) {
+    R_ = X;
+    G_ = C;
+  } else if (120 <= H && H < 180) {
+    G_ = C;
+    B_ = X;
+  } else if (180 <= H && H < 240) {
+    G_ = X;
+    B_ = C;
+  } else if (240 <= H && H < 300) {
+    B_ = C;
+    R_ = X;
+  } else {
+    B_ = X;
+    R_ = C;
+  }
+
+  int R = floor((R_ + m) * 255) + 0.5;
+  int G = floor((G_ + m) * 255) + 0.5;
+  int B = floor((B_ + m) * 255) + 0.5;
+  return RGB(R, G, B);
 }
 
 RECT CCG20612View::MyFunc_GetPolygonRect(const CPolygon& n_Polygon) {
@@ -548,7 +629,9 @@ void CCG20612View::MyFunc_ShowAllPolygon(CDC* pDC) {
 
   /* 显示多边形 */
   for (auto& pr : m_PolygonMap) {
-    MyFunc_FillPolygon(pDC, pr.second); /* 涂色 */
+    if (!m_LButtonDown && m_FillModOn) {  /* 移动时渲染开销大 */
+      MyFunc_FillPolygon(pDC, pr.second); /* 涂色 */
+    }
 
     const auto& nodes = pr.second.nodeIds;
     pDC->MoveTo(m_NodeMap[nodes[0]].pos);
@@ -764,3 +847,5 @@ void CCG20612View::OnSetellipse() { MyFunc_ChangeStateTo(STATE_SETELLIPSE); }
 void CCG20612View::OnSetcircle() { MyFunc_ChangeStateTo(STATE_SETCIRCLE); }
 
 void CCG20612View::OnSetpolygon() { MyFunc_ChangeStateTo(STATE_SETPOLYGON); }
+
+void CCG20612View::OnTogglefill() { m_FillModOn = !m_FillModOn; }

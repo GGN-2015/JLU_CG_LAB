@@ -86,6 +86,7 @@ class CCG20612View : public CView {
   int m_State;                      /* 自动机状态 */
   int m_PickUpNodeId;               /* 当前正在被移动的 NodeId */
   bool m_LButtonDown;               /* 鼠标左键是否按下 */
+  bool m_FillModOn;                 /* 填充模式 */
   bool m_Merge;                     /* 是否对目标点进行合并 */
   CPoint m_CursorPos;               /* 鼠标位置 */
   CPointMap m_NodeMap;              /* 结点列表 */
@@ -108,6 +109,7 @@ class CCG20612View : public CView {
                                            int nid);
   static void MyMathFunc_XorBuffer(std::vector<std::vector<int>>& buffer,
                                    CPoint from, CPoint to);
+  static COLORREF MyMathFunc_GetRgbByHsv(double H, double S, double V);
 
 /* 用于报错的宏 */
 #define MyWarning(n_Msg) MyStaticFunc_Warning(__FILE__, __LINE__, n_Msg)
@@ -148,6 +150,7 @@ class CCG20612View : public CView {
   afx_msg void OnSetellipse();
   afx_msg void OnSetcircle();
   afx_msg void OnSetpolygon();
+  afx_msg void OnTogglefill();
 };
 
 #ifndef _DEBUG  // CG20612View.cpp 中的调试版本
