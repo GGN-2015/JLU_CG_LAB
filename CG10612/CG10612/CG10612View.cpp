@@ -31,6 +31,7 @@ ON_WM_LBUTTONUP()
 ON_WM_MOUSEMOVE()
 ON_COMMAND(ID_SETNODE, &CCG10612View::OnSetnode)
 ON_COMMAND(ID_DELETENODE, &CCG10612View::OnDeletenode)
+ON_COMMAND(ID_SETELLIPSE, &CCG10612View::OnSetellipse)
 END_MESSAGE_MAP()
 
 // CCG10612View 构造/析构
@@ -133,7 +134,7 @@ void CCG10612View::MyFunc_TestAndDeleteNode(int nodeId) {
 void CCG10612View::MyFunc_AddNewNodeAt(CPoint point) {
   fprintf(stderr, "[CCG10612View::MyFunc_AddNewNodeAt] point = {%d,%d}\n",
           point.x, point.y);
-  int nodeId = ++m_MaxNodeId;
+  int nodeId = ++m_MaxObjId;
   CMyNode tmp;
   tmp.nodeId = nodeId;
   tmp.pos = point;
@@ -170,7 +171,8 @@ void CCG10612View::MyFunc_ShowAllItem() {
 
   // TODO: 显示所有对象
 
-  MyFunc_ShowAllNode(&dc); /* 绘制所有结点 */
+  MyFunc_ShowAllEllipse(&dc); /* 绘制所有椭圆 */
+  MyFunc_ShowAllNode(&dc);    /* 绘制所有结点 */
 
   /* 最后要记得显示到屏幕上 */
   pDC->BitBlt(rect.left, rect.top, zcRect.Width(), zcRect.Height(), &dc, 0, 0,
@@ -179,6 +181,8 @@ void CCG10612View::MyFunc_ShowAllItem() {
 }
 
 void CCG10612View::MyFunc_ShowAllNode(CDC* pDC) {
+  MyFunc_SetTagsOnNode();
+
   /* 绘制普通节点和选中结点时的画笔 */
   BOOL ret;
   CPen nodePen(PS_SOLID, NODE_WIDTH, NODE_COLOR);
@@ -225,10 +229,73 @@ void CCG10612View::MyFunc_ShowAllNode(CDC* pDC) {
 
 void CCG10612View::MyFunc_ChangeStateTo(int STATE_TO) {
   m_State = STATE_TO;
+  m_NodeIdList.clear();
   for (auto& pr : m_NodeMap) {
     auto& node = pr.second;
     node.tag = UNDEFINED; /* < 0, undefined. */
   }
+}
+
+void CCG10612View::MyFunc_SetTagsOnNode() {
+  std::map<int, int> idToTag;
+
+  for (int i = 0; i < m_NodeIdList.size(); i += 1) {
+    int id = m_NodeIdList[i];
+    idToTag[id] = i;
+  }
+
+  for (auto& pr : m_NodeMap) {
+    const auto& nodeId = pr.first;
+    auto& node = pr.second;
+
+    if (idToTag.count(nodeId) > 0) {
+      node.tag = idToTag[nodeId];
+    } else {
+      node.tag = UNDEFINED;
+    }
+  }
+}
+
+void CCG10612View::MyFunc_ShowAllEllipse(CDC* pDC) {
+  /* 找到不存在的椭圆 */
+  std::vector<int> delList;
+  for (auto& pr : m_EllipseSet) {
+    int id = pr.first;
+    auto& ellipse = pr.second;
+    if (m_NodeMap.count(ellipse.nodeIdA) <= 0 ||
+        m_NodeMap.count(ellipse.nodeIdB) <= 0) { /* 椭圆不存在 */
+      delList.push_back(id);
+    }
+  }
+
+  /* 删除不存在的椭圆 */
+  for (auto id : delList) {
+    m_EllipseSet.erase(id);
+  }
+
+  /* 绘制存在的椭圆 */
+  for (auto& pr : m_EllipseSet) {
+    int id = pr.first;
+    auto& ellipse = pr.second;
+    CPoint pA = m_NodeMap[ellipse.nodeIdA].pos,
+           pB = m_NodeMap[ellipse.nodeIdB].pos;
+
+    RECT rect;
+    rect.left = min(pA.x, pB.x);
+    rect.right = max(pA.x, pB.x);
+    rect.top = min(pA.y, pB.y);
+    rect.bottom = max(pA.y, pB.y);
+    pDC->Ellipse(&rect);
+  }
+}
+
+void CCG10612View::MyFunc_AddEllipseByNodeId(int id1, int id2) {
+  int eid = ++m_MaxObjId;
+  CEllipse tmp;
+  tmp.ellipseId = eid;
+  tmp.nodeIdA = id1;
+  tmp.nodeIdB = id2;
+  m_EllipseSet[eid] = tmp;
 }
 
 void CCG10612View::OnLButtonDown(UINT nFlags, CPoint point) {
@@ -249,6 +316,8 @@ void CCG10612View::OnLButtonDown(UINT nFlags, CPoint point) {
       break;
     case STATE_DELETENODE:
       /* 左键按下时不响应，左键抬起时响应 */
+      break;
+    case STATE_SETELLIPSE:
       break;
       // TODO: 填充其他的自动机切换
   }
@@ -279,6 +348,19 @@ void CCG10612View::OnLButtonUp(UINT nFlags, CPoint point) {
       MyFunc_ChangeStateTo(STATE_FREE);
       MyFunc_ShowAllItem();
       break;
+    case STATE_SETELLIPSE:
+      if (MyFunc_CheckCursorOnNode(point)) {
+        int nodeId = MyFunc_GetCursorOnNodeId(point);
+        m_NodeIdList.push_back(nodeId);
+      }
+      if (m_NodeIdList.size() >= 2) { /* 控制点选择结束 */
+        if (m_NodeIdList[0] != m_NodeIdList[1]) {
+          MyFunc_AddEllipseByNodeId(m_NodeIdList[0], m_NodeIdList[1]);
+        }
+        MyFunc_ChangeStateTo(STATE_FREE);
+      }
+      MyFunc_ShowAllItem();
+      break;
       // TODO: 鼠标抬起事件
   }
   CView::OnLButtonUp(nFlags, point);
@@ -300,6 +382,8 @@ void CCG10612View::OnMouseMove(UINT nFlags, CPoint point) {
       break;
     case STATE_DELETENODE:
       break;
+    case STATE_SETELLIPSE:
+      break;
       // TODO: MouseMove 事件处理
   }
   CView::OnMouseMove(nFlags, point);
@@ -318,4 +402,9 @@ void CMyNode::GetRect(RECT* rect) const {
   rect->right = pos.x + NODE_RADIUS;
   rect->top = pos.y - NODE_RADIUS;
   rect->bottom = pos.y + NODE_RADIUS;
+}
+
+void CCG10612View::OnSetellipse() {
+  // TODO: 在此添加命令处理程序代码
+  MyFunc_ChangeStateTo(STATE_SETELLIPSE);
 }

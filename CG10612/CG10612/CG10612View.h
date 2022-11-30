@@ -5,14 +5,21 @@
 #pragma once
 
 #include <map>
+#include <vector>
 
+struct CEllipse {
+  int ellipseId;        /* 椭圆 ID */
+  int nodeIdA, nodeIdB; /* 根据两个角控制点绘制椭圆 */
+};
 struct CMyNode {
   CPoint pos;                /* 结点位置 */
   int nodeId;                /* 结点编号 */
   int tag;                   /* 结点选中号 */
   void GetRect(RECT*) const; /* 获得矩形范围 */
 };
-typedef std::map<int, CMyNode> CPointMap; /* 点坐标序列 */
+typedef std::map<int, CMyNode> CPointMap;    /* 点坐标序列 */
+typedef std::vector<int> CNodeIdList;        /* 选中的结点 ID 序列 */
+typedef std::map<int, CEllipse> CEllipseMap; /* 椭圆集合 */
 
 /* ---------- 我的常量 ---------- */
 #define NODE_RADIUS (5)                    /* 结点半径*/
@@ -24,6 +31,7 @@ typedef std::map<int, CMyNode> CPointMap; /* 点坐标序列 */
 #define STATE_SETNODE (1)    /* 设置结点 */
 #define STATE_MOVENODE (2)   /* 移动节点 */
 #define STATE_DELETENODE (3) /* 移动节点 */
+#define STATE_SETELLIPSE (4) /* 绘制椭圆 */
 
 #define BACKGROUND_COLOR RGB(255, 255, 255) /* 设置背景颜色 */
 #define UNDEFINED (-1)
@@ -60,12 +68,14 @@ class CCG10612View : public CView {
  protected:
   /* ---------- 我的变量 ---------- */
 
-  int m_MaxNodeId = 0; /* 最大结点编号 */
-  int m_State;         /* 自动机状态 */
-  int m_PickUpNodeId;  /* 当前正在被移动的 NodeId */
-  bool m_LButtonDown;  /* 鼠标左键是否按下 */
-  CPoint m_CursorPos;  /* 鼠标位置 */
-  CPointMap m_NodeMap; /* 结点列表 */
+  int m_MaxObjId = 0;       /* 最大结点编号 */
+  int m_State;              /* 自动机状态 */
+  int m_PickUpNodeId;       /* 当前正在被移动的 NodeId */
+  bool m_LButtonDown;       /* 鼠标左键是否按下 */
+  CPoint m_CursorPos;       /* 鼠标位置 */
+  CPointMap m_NodeMap;      /* 结点列表 */
+  CNodeIdList m_NodeIdList; /* 选中的结点 ID 列表 */
+  CEllipseMap m_EllipseSet; /* 椭圆集合 */
 
   /* ---------- 我的函数 ---------- */
 
@@ -84,6 +94,9 @@ class CCG10612View : public CView {
   void MyFunc_ShowAllItem();               /* 显示所有对象 */
   void MyFunc_ShowAllNode(CDC* pDC);       /* 显示所有结点 */
   void MyFunc_ChangeStateTo(int STATE_TO); /* 设置新状态 */
+  void MyFunc_SetTagsOnNode();             /* 根据 m_NodeIdList 设置 tag */
+  void MyFunc_ShowAllEllipse(CDC* pDC);    /* 显示所有椭圆 */
+  void MyFunc_AddEllipseByNodeId(int id1, int id2); /* 增加新的椭圆*/
 
   // 生成的消息映射函数
  protected:
@@ -94,6 +107,7 @@ class CCG10612View : public CView {
   afx_msg void OnMouseMove(UINT nFlags, CPoint point);
   afx_msg void OnSetnode();
   afx_msg void OnDeletenode();
+  afx_msg void OnSetellipse();
 };
 
 #ifndef _DEBUG  // CG10612View.cpp 中的调试版本
