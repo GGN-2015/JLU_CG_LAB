@@ -436,8 +436,24 @@ void CCG20612View::MyFunc_ShowAllCircle(CDC* pDC) {
 }
 
 void CCG20612View::MyFunc_ShowAllPolygon(CDC* pDC) {
+  /* 删除额外的多边形 */
+  CNodeIdList del;
   for (auto& pr : m_PolygonMap) {
     /* 显示一个多边形 */
+    const auto& nodes = pr.second.nodeIds;
+    for (auto& id : nodes) {
+      if (m_NodeMap.count(id) <= 0) {
+        del.push_back(pr.first);
+        break;
+      }
+    }
+  }
+  for (auto& pid : del) {
+    m_PolygonMap.erase(pid);
+  }
+
+  /* 显示多边形 */
+  for (auto& pr : m_PolygonMap) {
     const auto& nodes = pr.second.nodeIds;
     pDC->MoveTo(m_NodeMap[nodes[0]].pos);
     for (int i = 1; i < nodes.size(); i += 1) {
