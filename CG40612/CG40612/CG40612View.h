@@ -41,7 +41,8 @@ typedef std::map<int, CPolygon> CPolygonMap; /* 多边形集合 */
 #define NODE_WIDTH (1)                     /* 结点线宽 */
 #define NODE_COLOR RGB(0, 0, 255)          /* 结点默认颜色 */
 #define NODE_SELECTED_COLOR RGB(255, 0, 0) /* 结点选中时颜色 */
-#define ELLIPSE_COLOR RGB(0, 0, 0) /* 算法绘制椭圆时采用的颜色 */
+#define CUT_SQUARE_COLOR RGB(0, 0, 0)      /* 裁剪区域边框颜色 */
+#define ELLIPSE_COLOR RGB(0, 0, 0)         /* 椭圆颜色 */
 
 #define STATE_FREE (0)       /* 自由光标 */
 #define STATE_SETNODE (1)    /* 设置结点 */
@@ -52,6 +53,8 @@ typedef std::map<int, CPolygon> CPolygonMap; /* 多边形集合 */
 #define STATE_SETPOLYGON (6) /* 绘制多边形 */
 #define STATE_CUTPOLYGON (7) /* 剪切多边形 */
 
+#define NEW_POLYGON_COLOR RGB(0, 255, 0)    /* 新的多边形 */
+#define OLD_POLYGON_COLOR RGB(255, 0, 0)    /* 旧的多边形 */
 #define BACKGROUND_COLOR RGB(255, 255, 255) /* 设置背景颜色 */
 #define UNDEFINED (-1)
 
@@ -93,6 +96,8 @@ class CCG40612View : public CView {
   bool m_LButtonDown;               /* 鼠标左键是否按下 */
   bool m_FillModOn;                 /* 填充模式 */
   bool m_Merge;                     /* 是否对目标点进行合并 */
+  bool m_CompareMod;                /* 剪切对比模式 */
+  RECT m_LastCutRect;               /* 上次裁剪的矩形边框 */
   CPoint m_CursorPos;               /* 鼠标位置 */
   CPoint m_CutBegin;                /* 裁剪矩形起点 */
   CPoint m_CutEnd;                  /* 裁剪举行终点 */
@@ -101,6 +106,7 @@ class CCG40612View : public CView {
   CEllipseMap m_EllipseSet;         /* 椭圆集合 */
   CCircleMap m_CircleSet;           /* 圆集合 */
   CPolygonMap m_PolygonMap;         /* 多边形集合 */
+  CPolygonMap m_LastPolygonMap;     /* 多边形集合进行备份 */
 
   /* ---------- 我的函数 ---------- */
 
@@ -121,6 +127,7 @@ class CCG40612View : public CView {
   static void MyStaticFunc_CutYAbove(CEdgeList&, int);
   static void MyStaticFunc_CutXBelow(CEdgeList&, int);
   static void MyStaticFunc_CutYBelow(CEdgeList&, int);
+  static void MyStaticFunc_DrawSquare(CDC* pDC, RECT rect, COLORREF color);
 
 /* 用于报错的宏 */
 #define MyWarning(n_Msg) MyStaticFunc_Warning(__FILE__, __LINE__, n_Msg)
@@ -150,8 +157,11 @@ class CCG40612View : public CView {
   void MyFunc_CutPolygons(); /* 对所有多边形进行裁剪 */
   RECT MyFunc_GetCutRect();  /* 获取用于裁剪的矩形框 */
   void MyFunc_CutPolygon(RECT& rect, CPolygon& n_CPolygon);
-  void MyFunc_ShowCutSquare(CDC*); /* 显示切割矩形 */
-
+  void MyFunc_ShowCutSquare(CDC*);     /* 显示切割矩形 */
+  void MyFunc_ShowLastCutSpuqre(CDC*); /* 显示上次的切割矩形 */
+  void MyFunc_ShowPolygonInMap(CDC* pDC, CPolygonMap& n_PolygonMap,
+                               int lineWidth, COLORREF color);
+  void MyFunc_DeleteAll();
   // 生成的消息映射函数
 
  protected:
@@ -167,6 +177,8 @@ class CCG40612View : public CView {
   afx_msg void OnSetpolygon();
   afx_msg void OnTogglefill();
   afx_msg void OnCutpolygon();
+  afx_msg void OnShowcompare();
+  afx_msg void OnDeleteall();
 };
 
 #ifndef _DEBUG  // CG40612View.cpp 中的调试版本

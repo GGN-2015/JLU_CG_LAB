@@ -36,6 +36,8 @@ ON_COMMAND(ID_SETCIRCLE, &CCG40612View::OnSetcircle)
 ON_COMMAND(ID_SETPOLYGON, &CCG40612View::OnSetpolygon)
 ON_COMMAND(ID_TOGGLEFILL, &CCG40612View::OnTogglefill)
 ON_COMMAND(ID_CUTPOLYGON, &CCG40612View::OnCutpolygon)
+ON_COMMAND(ID_SHOWCOMPARE, &CCG40612View::OnShowcompare)
+ON_COMMAND(ID_DELETEALL, &CCG40612View::OnDeleteall)
 END_MESSAGE_MAP()
 
 // CCG40612View 构造/析构
@@ -77,8 +79,8 @@ static const int NAME_CARD[NAME_CARD_HEIGHT][NAME_CARD_WIDTH] = {
      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 };
 
-CCG40612View::CCG40612View() noexcept {
-  // TODO: 在此处添加构造代码
+CCG40612View::CCG40612View() noexcept { /* 清空数据 */
+  MyFunc_DeleteAll();
 }
 
 CCG40612View::~CCG40612View() {}
@@ -287,6 +289,11 @@ void CCG40612View::MyFunc_CutPolygons() {
   if (rect.left == rect.right || rect.top == rect.bottom) {
     return; /* 没有面积，拒绝裁剪（很有可能是操作失误）*/
   }
+
+  /* 裁剪之前对旧的数据进行备份 */
+  m_LastCutRect = rect;
+  m_LastPolygonMap = m_PolygonMap;
+
   for (auto& pr : m_PolygonMap) {
     MyFunc_CutPolygon(rect, pr.second); /* 试图切割每一个多边形 */
   }
@@ -332,11 +339,17 @@ void CCG40612View::MyFunc_CutPolygon(RECT& rect, CPolygon& n_CPolygon) {
 void CCG40612View::MyFunc_ShowCutSquare(CDC* pDC) {
   RECT rect = MyFunc_GetCutRect();
   if (m_CutBegin != m_CutEnd && m_CutBegin != CPoint{0, 0} && m_LButtonDown) {
-    pDC->MoveTo({rect.left, rect.top});
-    pDC->LineTo({rect.right, rect.top});
-    pDC->LineTo({rect.right, rect.bottom});
-    pDC->LineTo({rect.left, rect.bottom});
-    pDC->LineTo({rect.left, rect.top});
+    MyStaticFunc_DrawSquare(pDC, rect, CUT_SQUARE_COLOR);
+  }
+}
+
+void CCG40612View::MyFunc_ShowLastCutSpuqre(CDC* pDC) {
+  if (m_CompareMod) {
+    /* 有面积，则绘制 */
+    if (m_LastCutRect.right != m_LastCutRect.left &&
+        m_LastCutRect.bottom != m_LastCutRect.top) {
+      MyStaticFunc_DrawSquare(pDC, m_LastCutRect, CUT_SQUARE_COLOR);
+    }
   }
 }
 
@@ -492,6 +505,20 @@ void CCG40612View::MyStaticFunc_CutYBelow(CEdgeList& es, int yBottom) {
   }
 }
 
+void CCG40612View::MyStaticFunc_DrawSquare(CDC* pDC, RECT rect,
+                                           COLORREF color) {
+  CPen pen(PS_SOLID, 1, color);
+  CPen* oldpen = pDC->SelectObject(&pen);
+
+  pDC->MoveTo({rect.left, rect.top});
+  pDC->LineTo({rect.right, rect.top});
+  pDC->LineTo({rect.right, rect.bottom});
+  pDC->LineTo({rect.left, rect.bottom});
+  pDC->LineTo({rect.left, rect.top});
+
+  pDC->SelectObject(oldpen);
+}
+
 RECT CCG40612View::MyFunc_GetPolygonRect(const CPolygon& n_Polygon) {
   RECT rect = {};
   rect.left = rect.right = m_NodeMap[n_Polygon.nodeIds[0]].pos.x;
@@ -576,11 +603,12 @@ void CCG40612View::MyFunc_ShowAllItem() {
 
   // TODO: 显示所有对象
 
-  MyFunc_ShowAllPolygon(&dc); /* 绘制所有多边形 */
-  MyFunc_ShowAllCircle(&dc);  /* 绘制所有圆 */
-  MyFunc_ShowAllEllipse(&dc); /* 绘制所有椭圆 */
-  MyFunc_ShowAllNode(&dc);    /* 绘制所有结点 */
-  MyFunc_ShowCutSquare(&dc);  /* 显示切割矩形 */
+  MyFunc_ShowCutSquare(&dc);     /* 显示切割矩形 */
+  MyFunc_ShowLastCutSpuqre(&dc); /* 显示上次的切割矩形 */
+  MyFunc_ShowAllPolygon(&dc);    /* 绘制所有多边形 */
+  MyFunc_ShowAllCircle(&dc);     /* 绘制所有圆 */
+  MyFunc_ShowAllEllipse(&dc);    /* 绘制所有椭圆 */
+  MyFunc_ShowAllNode(&dc);       /* 绘制所有结点 */
 
   /* 最后要记得显示到屏幕上 */
   pDC->BitBlt(rect.left, rect.top, zcRect.Width(), zcRect.Height(), &dc, 0, 0,
@@ -598,7 +626,10 @@ void CCG40612View::MyFunc_ShowAllNode(CDC* pDC) {
     COLORREF color =
         ptr->second.tag == UNDEFINED ? NODE_COLOR : NODE_SELECTED_COLOR;
 
-    MyStaticFunc_DrawNode(pDC, nodePoint.pos, color); /* 绘制椭圆结点 */
+    /* 对比模式下只显示有标签的结点 */
+    if (!m_CompareMod || ptr->second.tag != UNDEFINED) {
+      MyStaticFunc_DrawNode(pDC, nodePoint.pos, color); /* 绘制椭圆结点 */
+    }
   }
 
   /* 绘制所有的文字 */
@@ -745,9 +776,19 @@ void CCG40612View::MyFunc_ShowAllCircle(CDC* pDC) {
 }
 
 void CCG40612View::MyFunc_ShowAllPolygon(CDC* pDC) {
-  /* 删除额外的多边形 */
+  if (!m_CompareMod) {
+    MyFunc_ShowPolygonInMap(pDC, m_PolygonMap, 1, RGB(0, 0, 0));
+  } else {
+    MyFunc_ShowPolygonInMap(pDC, m_LastPolygonMap, 1, OLD_POLYGON_COLOR);
+    MyFunc_ShowPolygonInMap(pDC, m_PolygonMap, 2, NEW_POLYGON_COLOR);
+  }
+}
+
+void CCG40612View::MyFunc_ShowPolygonInMap(CDC* pDC, CPolygonMap& n_PolygonMap,
+                                           int lineWidth, COLORREF color) {
+  /* 删除额外的多边形，不要用 m_PolygonMap */
   CNodeIdList del;
-  for (auto& pr : m_PolygonMap) {
+  for (auto& pr : n_PolygonMap) {
     /* 显示一个多边形 */
     const auto& nodes = pr.second.nodeIds;
     if (nodes.size() <= 2) { /* 多边形至少有三个顶点 */
@@ -762,13 +803,16 @@ void CCG40612View::MyFunc_ShowAllPolygon(CDC* pDC) {
     }
   }
   for (auto& pid : del) {
-    m_PolygonMap.erase(pid);
+    n_PolygonMap.erase(pid);
   }
 
   /* 显示多边形 */
-  for (auto& pr : m_PolygonMap) {
-    if (!m_LButtonDown && m_FillModOn) {  /* 移动时渲染开销大 */
-      MyFunc_FillPolygon(pDC, pr.second); /* 涂色 */
+  CPen pen(PS_SOLID, lineWidth, color);
+  CPen* oldPen = pDC->SelectObject(&pen);
+
+  for (auto& pr : n_PolygonMap) {
+    if (!m_LButtonDown && m_FillModOn && !m_CompareMod) { /* 移动时渲染开销大 */
+      MyFunc_FillPolygon(pDC, pr.second);                 /* 涂色 */
     }
 
     const auto& nodes = pr.second.nodeIds;
@@ -778,6 +822,8 @@ void CCG40612View::MyFunc_ShowAllPolygon(CDC* pDC) {
     }
     pDC->LineTo(m_NodeMap[nodes[0]].pos);
   }
+
+  pDC->SelectObject(oldPen);
 }
 
 void CCG40612View::MyFunc_PutDownMovingNodeAndMerge(CPoint point) {
@@ -1004,3 +1050,34 @@ void CCG40612View::OnTogglefill() {
 }
 
 void CCG40612View::OnCutpolygon() { MyFunc_ChangeStateTo(STATE_CUTPOLYGON); }
+
+void CCG40612View::OnShowcompare() { /* 开启/ 关闭 剪切对比模式*/
+  m_CompareMod = !m_CompareMod;
+  m_FillModOn = true;
+  MyFunc_ShowAllItem();
+}
+
+void CCG40612View::OnDeleteall() {
+  MyFunc_DeleteAll();
+  MyFunc_ShowAllItem();
+}
+
+void CCG40612View::MyFunc_DeleteAll() {
+  m_MaxObjId = 0;               /* 最大结点编号 */
+  m_State = STATE_FREE;         /* 自动机状态 */
+  m_PickUpNodeId = UNDEFINED;   /* 当前正在被移动的 NodeId */
+  m_LButtonDown = false;        /* 鼠标左键是否按下 */
+  m_FillModOn = true;           /* 填充模式 */
+  m_Merge = false;              /* 是否对目标点进行合并 */
+  m_CompareMod = false;         /* 剪切对比模式 */
+  m_LastCutRect = RECT{};       /* 上次裁剪的矩形边框 */
+  m_CursorPos = CPoint{};       /* 鼠标位置 */
+  m_CutBegin = CPoint{};        /* 裁剪矩形起点 */
+  m_CutEnd = CPoint{};          /* 裁剪举行终点 */
+  m_NodeMap.clear();            /* 结点列表 */
+  m_SelectedNodeIdList.clear(); /* 选中的结点 ID 列表 */
+  m_EllipseSet.clear();         /* 椭圆集合 */
+  m_CircleSet.clear();          /* 圆集合 */
+  m_PolygonMap.clear();         /* 多边形集合 */
+  m_LastPolygonMap.clear();     /* 多边形集合进行备份 */
+}
