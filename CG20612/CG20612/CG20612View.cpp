@@ -274,7 +274,8 @@ void CCG20612View::MyFunc_FillPolygon(CDC* pDC, const CPolygon& n_Polygon) {
       powNow ^= buffer[x][y];
       if (powNow && NAME_CARD[y % NAME_CARD_HEIGHT][x % NAME_CARD_WIDTH]) {
         pDC->SetPixel(pos.x, pos.y,
-                      MyMathFunc_GetRgbByHsv((x + y) / 10.0, 0.8, 0.8));
+                      MyMathFunc_GetRgbByHsv((double)(x + y) / NAME_CARD_WIDTH,
+                                             0.8, 0.8));
       }
     }
   }
@@ -375,7 +376,7 @@ int CCG20612View::MyFunc_GetCursorOnNodeId(CPoint n_CursorPosition) {
   for (auto& pr : m_NodeMap) {
     const auto& nodePos = pr.second;
     if (MyStaticFunc_GetPointDistance(nodePos.pos, n_CursorPosition) <=
-        NODE_RADIUS) {
+        NODE_RADIUS * 1.5) {
       return pr.first;
     }
   }
