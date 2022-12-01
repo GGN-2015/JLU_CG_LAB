@@ -54,3 +54,27 @@ CBitmap* OldBmp = dc.SelectObject(&memBmp);
 
 1. 错用了 nodeId 于 m\_NodeMap[nodeId] 导致裁剪出错；
 2. 由于裁剪能够得到十分整齐的边缘，发现了 CG2- 的极值点处理不够完美，会在整齐边缘出错，修改了取等条件即可。
+
+错误的写法：
+
+```cpp
+/* 极值点 */
+if (lastPos.x < nowPos.x && nextPos.x < nowPos.x ||
+    lastPos.x > nowPos.x && nextPos.x > nowPos.x) {
+    buffer[nowPos.x - topleft.x][nowPos.y - topleft.y] ^= 1;
+}
+```
+
+正确的写法：
+
+```cpp
+/* 极值点 */
+if (lastPos.x <= nowPos.x && nextPos.x < nowPos.x ||
+    lastPos.x >= nowPos.x && nextPos.x > nowPos.x) {
+    buffer[nowPos.x - topleft.x][nowPos.y - topleft.y] ^= 1;
+}
+```
+
+![image-20221201094346308](C:\Users\qwe\AppData\Roaming\Typora\typora-user-images\image-20221201094346308.png)
+
+错误效果如上图所示，正确的做法不存在泄露问题。

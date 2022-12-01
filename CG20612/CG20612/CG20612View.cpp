@@ -259,8 +259,8 @@ void CCG20612View::MyFunc_FillPolygon(CDC* pDC, const CPolygon& n_Polygon) {
                                     : m_NodeMap[nodes[i + 1]].pos;
     nowPos = m_NodeMap[nodes[i]].pos;
     /* 极值点 */
-    if (lastPos.x < nowPos.x && nextPos.x < nowPos.x ||
-        lastPos.x > nowPos.x && nextPos.x > nowPos.x) {
+    if (lastPos.x <= nowPos.x && nextPos.x < nowPos.x ||
+        lastPos.x >= nowPos.x && nextPos.x > nowPos.x) {
       buffer[nowPos.x - topleft.x][nowPos.y - topleft.y] ^= 1;
     }
   }
