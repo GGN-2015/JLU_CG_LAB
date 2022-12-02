@@ -275,11 +275,14 @@ void CCG40612View::MyFunc_FillPolygon(CDC* pDC, const CPolygon& n_Polygon) {
       CPoint pos(x, y);
       pos += topleft;
       powNow ^= buffer[x][y];
+#define sqr(x) ((double)(x) * (x))
       if (powNow && NAME_CARD[y % NAME_CARD_HEIGHT][x % NAME_CARD_WIDTH]) {
-        pDC->SetPixel(pos.x, pos.y,
-                      MyMathFunc_GetRgbByHsv((double)(x + y) / NAME_CARD_WIDTH,
-                                             0.8, 0.8));
+        pDC->SetPixel(
+            pos.x, pos.y,
+            MyMathFunc_GetRgbByHsv(
+                (double)(sqrt(sqr(x) + sqr(y))) / NAME_CARD_WIDTH, 0.8, 0.8));
       }
+#undef sqr
     }
   }
 }
@@ -386,8 +389,8 @@ void CCG40612View::MyMathFunc_XorBuffer(std::vector<std::vector<int>>& buffer,
   for (int i = minx; i <= maxx; i += 1) {
     if (i == to.x) continue;
 
-    int xnow = int((i - minx) / dx * dy + basey + 0.5);
-    buffer[i][xnow] ^= 1;
+    int ynow = int((i - minx) / dx * dy + basey + 0.5);  // DDA
+    buffer[i][ynow] ^= 1;
   }
 }
 
