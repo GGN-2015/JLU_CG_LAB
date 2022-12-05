@@ -273,9 +273,12 @@ void CCG20612View::MyFunc_FillPolygon(CDC* pDC, const CPolygon& n_Polygon) {
       pos += topleft;
       powNow ^= buffer[x][y];
       if (powNow && NAME_CARD[y % NAME_CARD_HEIGHT][x % NAME_CARD_WIDTH]) {
-        pDC->SetPixel(pos.x, pos.y,
-                      MyMathFunc_GetRgbByHsv((double)(x + y) / NAME_CARD_WIDTH,
-                                             0.8, 0.8));
+#define sqr(x) ((double)(x) * (x))
+        pDC->SetPixel(
+            pos.x, pos.y,
+            MyMathFunc_GetRgbByHsv(
+                (double)(sqrt(sqr(x) + sqr(y))) / NAME_CARD_WIDTH, 0.8, 0.8));
+#undef sqr
       }
     }
   }
