@@ -108,11 +108,13 @@ class CCG30612View : public CView {
   CVector2d MyFunc_ProjectionWorldToLogic(CVector3d pos);
   CVector2d MyFunc_ProjectionWorldToDevice(CVector3d pos);
   void MyFunc_ShowAllItem();
+  void MyFunc_ShowAllItem(CDC* pDC);
   void MyFunc_ShowAllCubes(CDC* pDC);
   void MyFunc_ShowCube(CDC* pDC, CCube* cube);
   void MyFunc_GetCornersForCube(const CCube* cube, CVector3d* corners);
   void MyFunc_AddCube(CCube n_Cube);
   void MyFunc_ImmediateShow();
+  void MyFunc_ShowHelpText(CDC* pDC);
 
  protected:
   // 生成的消息映射函数

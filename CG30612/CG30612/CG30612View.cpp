@@ -129,15 +129,20 @@ void CCG30612View::MyFunc_ShowAllItem() {
   BkBrush.CreateSolidBrush(BACKGROUND_COLOR);
   dc.FillRect(rect, &BkBrush);
 
-  /* 统一距离 */
-  m_Center = math::vmul(math::vuni(m_Center), math::c_CenterDistance);
-
-  MyFunc_ShowAllCubes(&dc); /* 绘制所有正方体 */
+  MyFunc_ShowAllItem(&dc);
 
   /* 最后要记得显示到屏幕上 */
   pDC->BitBlt(rect.left, rect.top, zcRect.Width(), zcRect.Height(), &dc, 0, 0,
               SRCCOPY);
   ReleaseDC(pDC); /* 记得 release */
+}
+
+void CCG30612View::MyFunc_ShowAllItem(CDC* pDC) {
+  /* 统一距离 */
+  m_Center = math::vmul(math::vuni(m_Center), math::c_CenterDistance);
+
+  MyFunc_ShowHelpText(pDC);
+  MyFunc_ShowAllCubes(pDC); /* 绘制所有正方体 */
 }
 
 void CCG30612View::MyFunc_ShowAllCubes(CDC* pDC) {
@@ -212,6 +217,16 @@ void CCG30612View::MyFunc_AddCube(CCube n_Cube) {
 
 void CCG30612View::MyFunc_ImmediateShow() {
   MyFunc_ShowAllItem(); /* 更新显示区域 */
+}
+
+void CCG30612View::MyFunc_ShowHelpText(CDC* pDC) {
+  RECT rect;
+  rect.left = 0;
+  rect.top = 0;
+  rect.right = 400;
+  rect.bottom = 30;
+  pDC->DrawText(TEXT("使用 “↑”、“↓”、“←”、“→” 控制视角转动"), &rect,
+                DT_SINGLELINE | DT_CENTER | DT_VCENTER);
 }
 
 CCG30612Doc* CCG30612View::GetDocument() const  // 非调试版本是内联的
@@ -364,7 +379,7 @@ void CCG30612View::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags) {
   /* 左手边方向 */
   CVector3d left = math::vuni(math::vcross(m_Center, math::c_Vector3d_z));
 
-  switch (nChar) {
+  /* switch (nChar) {
     case VK_UP: {
       m_Center.GetZ() += math::c_MoveEps;
     } break;
@@ -377,6 +392,19 @@ void CCG30612View::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags) {
     case VK_RIGHT: {
       m_Center = math::vadd(m_Center, math::vmul(left, math::c_MoveEps));
     } break;
+  }*/
+
+  if (GetAsyncKeyState(VK_UP)) {
+    m_Center.GetZ() += math::c_MoveEps;
+  }
+  if (GetAsyncKeyState(VK_DOWN)) {
+    m_Center.GetZ() -= math::c_MoveEps;
+  }
+  if (GetAsyncKeyState(VK_LEFT)) {
+    m_Center = math::vadd(m_Center, math::vmul(left, -math::c_MoveEps));
+  }
+  if (GetAsyncKeyState(VK_RIGHT)) {
+    m_Center = math::vadd(m_Center, math::vmul(left, math::c_MoveEps));
   }
 
   MyFunc_ImmediateShow();
