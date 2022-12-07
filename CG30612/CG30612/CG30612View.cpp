@@ -238,6 +238,13 @@ void CCG30612View::MyFunc_ShowHelpText(CDC* pDC) {
   rect.bottom = 30;
   pDC->DrawText(TEXT("使用 “↑”、“↓”、“←”、“→” 控制视角转动"), &rect,
                 DT_SINGLELINE | DT_CENTER | DT_VCENTER);
+
+  rect.left = 0;
+  rect.top = 30;
+  rect.right = 400;
+  rect.bottom = 60;
+  pDC->DrawText(TEXT("也可使用鼠标拖拽控制视角转动"), &rect,
+                DT_SINGLELINE | DT_CENTER | DT_VCENTER);
 }
 
 void CCG30612View::MyFunc_SetCenter(CPoint dpos) {
