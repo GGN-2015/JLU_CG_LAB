@@ -42,18 +42,21 @@ struct CCube { /* 正方体 */
 };
 
 #define BACKGROUND_COLOR RGB(255, 255, 255)
+#define IDT_TIMER (WM_USER + 200)
 
 typedef std::map<int, CCube> CCubeMap;
 
 namespace math {
+const double c_MathEps = 1e-7;
 const double c_PixelMoveEps = 10;
 const double c_z_max = 5.0;
 const double c_z_min = -5.0;
 const double c_MoveEps = 1e-1;
-const double c_ScreenDistance = 7.0;        /* 投影面到原点的距离 */
-const double c_CenterDistance = 8.0;        /* 投影点到原点的距离 */
-const double c_LogicRate = 1000.0;          /* 1 LogicUnit = ? Pixel */
-const CVector3d c_Vector3d_z = {0, 0, 1.0}; /* z轴 */
+const double c_ScreenDistance = 7.0; /* 投影面到原点的距离 */
+const double c_CenterDistance = 8.0; /* 投影点到原点的距离 */
+const double c_LogicRate = 1000.0;   /* 1 LogicUnit = ? Pixel */
+const double c_SpinSpeed = 2 * acos(-1.0) / 3.0; /* 三秒一圈 */
+const CVector3d c_Vector3d_z = {0, 0, 1.0};      /* z轴 */
 
 CVector3d vadd(CVector3d, CVector3d);   /* 向量加法 */
 CVector3d vmul(CVector3d, double p);    /* 数乘向量 */
@@ -64,6 +67,7 @@ double vdot(CVector3d, CVector3d);      /* 向量点积 */
 CVector3d vcross(CVector3d, CVector3d); /* 向量叉积 */
 double vdprj(CVector3d v, CVector3d e); /* 得到 v 在 e 上的投影长度 */
 CVector3d vprj(CVector3d v, CVector3d e); /* 得到 v 在 e 上的投影 */
+CVector3d vrot(CVector3d v, CVector3d base, double rad); /* 旋转 */
 
 int lowbit(int x);    /* 计算最低二进制位 */
 double sgn(double x); /* 计算符号 */
@@ -77,6 +81,8 @@ CVector2d GetPrjV2d(CVector3d pos, const CPlane& plane,
 
 CVector2d GetDevicePos(CVector2d p, int width, int height); /* 计算设备坐标 */
 double GetClockTime();
+
+void ZSpinner(CCube* cube, double tnow);
 }  // namespace math
 
 class CCG30612View : public CView {
@@ -124,6 +130,7 @@ class CCG30612View : public CView {
   void MyFunc_MoveLeft();
   void MyFunc_MoveUp();
   void MyFunc_MoveDown();
+  void MyFunc_StartTimer(UINT id, UINT duration);
 
  protected:
   // 生成的消息映射函数
@@ -143,6 +150,8 @@ class CCG30612View : public CView {
   afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
   afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
   afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+  afx_msg void OnTimer(UINT_PTR nIDEvent);
+  virtual void OnInitialUpdate();
 };
 
 #ifndef _DEBUG  // CG30612View.cpp 中的调试版本

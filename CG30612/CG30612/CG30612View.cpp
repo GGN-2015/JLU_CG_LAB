@@ -16,6 +16,7 @@
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
+#include <cassert>
 
 // CCG30612View
 
@@ -31,6 +32,7 @@ ON_WM_KEYDOWN()
 ON_WM_LBUTTONDOWN()
 ON_WM_LBUTTONUP()
 ON_WM_MOUSEMOVE()
+ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 // CCG30612View 构造/析构
@@ -59,10 +61,11 @@ CCG30612View::CCG30612View() noexcept {
   MyFunc_AddCube(tmpCube);
 
   /* 插入小正方形 */
-  tmpCube.pos = {0, 0, 0.5 + 0.5 * sqrt(3) / 2};
+  tmpCube.pos = {0, 0, 0.5 + 0.5 * sqrt(2) / 2};
   tmpCube.up = {0, sqrt(2) / 2, sqrt(2) / 2};
   tmpCube.left = {0, -sqrt(2) / 2, sqrt(2) / 2};
   tmpCube.d = 0.5;
+  tmpCube.p_CubeChanger = math::ZSpinner;
   MyFunc_AddCube(tmpCube);
 }
 
@@ -298,6 +301,12 @@ void CCG30612View::MyFunc_MoveDown() {
   }
 }
 
+void CCG30612View::MyFunc_StartTimer(UINT id, UINT duration) {
+  UINT_PTR TimerVal;
+  TimerVal = SetTimer(id, duration, NULL);  // Starting the Timer
+  assert(TimerVal != 0);
+}
+
 double math::sgn(double x) {
   if (fabs(x) < 1e-6) {
     return 0;
@@ -378,6 +387,25 @@ CVector3d math::vprj(CVector3d v, CVector3d e) {
   return vmul(vuni(e), vdprj(v, e));
 }
 
+CVector3d math::vrot(CVector3d v, CVector3d base, double rad) {
+  if (vlen(v) < math::c_MathEps) return v;
+  if (fabs(vdot(v, base) / (vlen(v) * vlen(base)) - 1) < math::c_MathEps) {
+    return v;
+  }
+  CVector3d dir = vuni(v);
+  CVector3d rdir = vadd(dir, vneg(vprj(dir, base))); /* 径向向量 */
+  CVector3d front = vuni(rdir);                      /* 径向单位向量 */
+  CVector3d tdir = vadd(dir, vneg(rdir));            /* 沿轴分量 */
+  CVector3d left = vuni(vcross(base, rdir));
+
+  CVector3d nrdir =
+      vmul(vadd(vmul(front, cos(rad)), vmul(left, sin(rad))), vlen(rdir));
+  CVector3d ndir = vadd(nrdir, tdir);
+
+  CVector3d ans = vmul(ndir, vlen(v));
+  return ans;
+}
+
 int math::lowbit(int x) { return x & -x; }
 
 CPlane math::GetProjectionPlaneByPoint(CVector3d pos) {
@@ -441,6 +469,15 @@ CVector2d math::GetDevicePos(CVector2d p, int width, int height) {
 
 double math::GetClockTime() { /* 获取程序运行时间 */
   return 1.0 * clock() / CLOCKS_PER_SEC;
+}
+
+void math::ZSpinner(CCube* cube, double tnow) {
+  if (cube != nullptr) {
+    double dt = tnow - cube->t;
+    cube->pos = vrot(cube->pos, c_Vector3d_z, dt * c_SpinSpeed);
+    cube->left = vrot(cube->left, c_Vector3d_z, dt * c_SpinSpeed);
+    cube->up = vrot(cube->up, c_Vector3d_z, dt * c_SpinSpeed);
+  }
 }
 
 void CCG30612View::OnSize(UINT nType, int cx, int cy) {
@@ -516,4 +553,19 @@ void CCG30612View::OnMouseMove(UINT nFlags, CPoint point) {
   }
 
   CView::OnMouseMove(nFlags, point);
+}
+
+void CCG30612View::OnTimer(UINT_PTR nIDEvent) {
+  // TODO: 在此添加消息处理程序代码和/或调用默认值
+  if (nIDEvent == IDT_TIMER) {
+    MyFunc_ImmediateShow();
+  }
+
+  CView::OnTimer(nIDEvent);
+}
+
+void CCG30612View::OnInitialUpdate() {
+  CView::OnInitialUpdate();
+
+  MyFunc_StartTimer(IDT_TIMER, 30);
 }

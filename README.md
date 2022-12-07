@@ -61,6 +61,10 @@ GetDC 后要 ReleaseDC 而不是 DeleteDC（DeleteDC 用于销毁一个 DC）。
 
 单纯使用 KeyDown 事件无法实现多键同时按下的控制，改用 GetAsyncKeyState 实现。
 
+自动旋转的小正方体不能自动绘制，需要设置定时器触发绘制。
+
+要将 SetTimer 放到 OnInitialUpdate 中执行，而不要放到构造函数中执行（此时窗口初始化未完成），否则无法正常执行。
+
 ## CG4-
 
 实现了矩形区域的裁剪算法。
