@@ -59,6 +59,8 @@ CBitmap* OldBmp = dc.SelectObject(&memBmp);
 
 GetDC 后要 ReleaseDC 而不是 DeleteDC（DeleteDC 用于销毁一个 DC）。
 
+单纯使用 KeyDown 事件无法实现多键同时按下的控制，改用 GetAsyncKeyState 实现。
+
 ## CG4-
 
 实现了矩形区域的裁剪算法。

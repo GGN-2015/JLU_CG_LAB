@@ -46,9 +46,12 @@ struct CCube { /* 正方体 */
 typedef std::map<int, CCube> CCubeMap;
 
 namespace math {
+const double c_PixelMoveEps = 10;
+const double c_z_max = 5.0;
+const double c_z_min = -5.0;
 const double c_MoveEps = 1e-1;
-const double c_ScreenDistance = 5.0;        /* 投影面到原点的距离 */
-const double c_CenterDistance = 6.0;        /* 投影点到原点的距离 */
+const double c_ScreenDistance = 7.0;        /* 投影面到原点的距离 */
+const double c_CenterDistance = 8.0;        /* 投影点到原点的距离 */
 const double c_LogicRate = 1000.0;          /* 1 LogicUnit = ? Pixel */
 const CVector3d c_Vector3d_z = {0, 0, 1.0}; /* z轴 */
 
@@ -62,7 +65,8 @@ CVector3d vcross(CVector3d, CVector3d); /* 向量叉积 */
 double vdprj(CVector3d v, CVector3d e); /* 得到 v 在 e 上的投影长度 */
 CVector3d vprj(CVector3d v, CVector3d e); /* 得到 v 在 e 上的投影 */
 
-double lowbit(int x); /* 计算最低二进制位 */
+int lowbit(int x);    /* 计算最低二进制位 */
+double sgn(double x); /* 计算符号 */
 
 CPlane GetProjectionPlaneByPoint(
     CVector3d pos); /* 根据观察点找到对应的投影面 */
@@ -115,6 +119,11 @@ class CCG30612View : public CView {
   void MyFunc_AddCube(CCube n_Cube);
   void MyFunc_ImmediateShow();
   void MyFunc_ShowHelpText(CDC* pDC);
+  void MyFunc_SetCenter(CPoint dpos); /* 根据鼠标位置变化切换视角 */
+  void MyFunc_MoveRight();
+  void MyFunc_MoveLeft();
+  void MyFunc_MoveUp();
+  void MyFunc_MoveDown();
 
  protected:
   // 生成的消息映射函数
@@ -125,10 +134,15 @@ class CCG30612View : public CView {
   int m_Width, m_Height, m_EntityId = 0;
   CVector3d m_Center = {math::c_CenterDistance, 0, 0}; /* 投影点 */
   CCubeMap m_CubeMap;
+  bool m_LButtonDown = false;
+  CPoint m_LButtonDownPos; /* 鼠标左键按下时鼠标的位置 */
 
  public:
   afx_msg void OnSize(UINT nType, int cx, int cy);
   afx_msg void OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags);
+  afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+  afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+  afx_msg void OnMouseMove(UINT nFlags, CPoint point);
 };
 
 #ifndef _DEBUG  // CG30612View.cpp 中的调试版本

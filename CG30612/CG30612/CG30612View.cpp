@@ -28,6 +28,9 @@ ON_COMMAND(ID_FILE_PRINT_DIRECT, &CView::OnFilePrint)
 ON_COMMAND(ID_FILE_PRINT_PREVIEW, &CView::OnFilePrintPreview)
 ON_WM_SIZE()
 ON_WM_KEYDOWN()
+ON_WM_LBUTTONDOWN()
+ON_WM_LBUTTONUP()
+ON_WM_MOUSEMOVE()
 END_MESSAGE_MAP()
 
 // CCG30612View 构造/析构
@@ -47,11 +50,19 @@ CCG30612View::CCG30612View() noexcept {
   EnablePrintfAtMFC();
   m_Center = {3.464, 3.464, 3.464};
 
+  /* 插入大正方形 */
   CCube tmpCube = {};
   tmpCube.pos = {0, 0, 0};
   tmpCube.up = {0, 0, 1};
   tmpCube.left = {0, 1, 0};
   tmpCube.d = 1;
+  MyFunc_AddCube(tmpCube);
+
+  /* 插入小正方形 */
+  tmpCube.pos = {0, 0, 0.5 + 0.5 * sqrt(3) / 2};
+  tmpCube.up = {0, sqrt(2) / 2, sqrt(2) / 2};
+  tmpCube.left = {0, -sqrt(2) / 2, sqrt(2) / 2};
+  tmpCube.d = 0.5;
   MyFunc_AddCube(tmpCube);
 }
 
@@ -174,8 +185,8 @@ void CCG30612View::MyFunc_ShowCube(CDC* pDC, CCube* cube) {
           lcnt += 1;
           CVector2d from = MyFunc_ProjectionWorldToDevice(corners[i]);
           CVector2d to = MyFunc_ProjectionWorldToDevice(corners[j]);
-          pDC->MoveTo(from.GetX() + 0.5, from.GetY() + 0.5);
-          pDC->LineTo(to.GetX() + 0.5, to.GetY() + 0.5);
+          pDC->MoveTo((int)(from.GetX() + 0.5), (int)(from.GetY() + 0.5));
+          pDC->LineTo((int)(to.GetX() + 0.5), (int)(to.GetY() + 0.5));
         }
       }
     }
@@ -227,6 +238,68 @@ void CCG30612View::MyFunc_ShowHelpText(CDC* pDC) {
   rect.bottom = 30;
   pDC->DrawText(TEXT("使用 “↑”、“↓”、“←”、“→” 控制视角转动"), &rect,
                 DT_SINGLELINE | DT_CENTER | DT_VCENTER);
+}
+
+void CCG30612View::MyFunc_SetCenter(CPoint dpos) {
+  if (dpos.x != 0) {
+    double xtmp = dpos.x;
+    double xstp = math::sgn(dpos.x) * math::c_PixelMoveEps;
+    while (math::sgn(xtmp) == math::sgn(xstp)) { /* 直到变号为止 */
+      if (xstp > 0) {
+        MyFunc_MoveLeft();
+      } else {
+        MyFunc_MoveRight();
+      }
+      xtmp -= xstp;
+    }
+  }
+  if (dpos.y != 0) {
+    double ytmp = dpos.y;
+    double ystp = math::sgn(dpos.y) * math::c_PixelMoveEps;
+    while (math::sgn(ytmp) == math::sgn(ystp)) { /* 直到变号为止 */
+      if (ystp > 0) {
+        MyFunc_MoveUp();
+      } else {
+        MyFunc_MoveDown();
+      }
+      ytmp -= ystp;
+    }
+  }
+
+  MyFunc_ImmediateShow();
+}
+
+void CCG30612View::MyFunc_MoveRight() {
+  CVector3d left = math::vuni(math::vcross(m_Center, math::c_Vector3d_z));
+  m_Center = math::vadd(m_Center, math::vmul(left, math::c_MoveEps));
+}
+
+void CCG30612View::MyFunc_MoveLeft() {
+  CVector3d left = math::vuni(math::vcross(m_Center, math::c_Vector3d_z));
+  m_Center = math::vadd(m_Center, math::vmul(left, -math::c_MoveEps));
+}
+
+void CCG30612View::MyFunc_MoveUp() {
+  if (m_Center.GetZ() < math::c_z_max) {
+    m_Center.GetZ() += math::c_MoveEps;
+  }
+}
+
+void CCG30612View::MyFunc_MoveDown() {
+  if (m_Center.GetZ() > math::c_z_min) {
+    m_Center.GetZ() -= math::c_MoveEps;
+  }
+}
+
+double math::sgn(double x) {
+  if (fabs(x) < 1e-6) {
+    return 0;
+  }
+  if (x > 0) {
+    return 1;
+  } else {
+    return -1;
+  }
 }
 
 CCG30612Doc* CCG30612View::GetDocument() const  // 非调试版本是内联的
@@ -298,7 +371,7 @@ CVector3d math::vprj(CVector3d v, CVector3d e) {
   return vmul(vuni(e), vdprj(v, e));
 }
 
-double math::lowbit(int x) { return x & -x; }
+int math::lowbit(int x) { return x & -x; }
 
 CPlane math::GetProjectionPlaneByPoint(CVector3d pos) {
   CPlane tmp = {};
@@ -377,7 +450,6 @@ void CCube::Unify() {
 
 void CCG30612View::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags) {
   /* 左手边方向 */
-  CVector3d left = math::vuni(math::vcross(m_Center, math::c_Vector3d_z));
 
   /* switch (nChar) {
     case VK_UP: {
@@ -395,18 +467,46 @@ void CCG30612View::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags) {
   }*/
 
   if (GetAsyncKeyState(VK_UP)) {
-    m_Center.GetZ() += math::c_MoveEps;
+    MyFunc_MoveUp();
   }
   if (GetAsyncKeyState(VK_DOWN)) {
-    m_Center.GetZ() -= math::c_MoveEps;
+    MyFunc_MoveDown();
   }
   if (GetAsyncKeyState(VK_LEFT)) {
-    m_Center = math::vadd(m_Center, math::vmul(left, -math::c_MoveEps));
+    MyFunc_MoveLeft();
   }
   if (GetAsyncKeyState(VK_RIGHT)) {
-    m_Center = math::vadd(m_Center, math::vmul(left, math::c_MoveEps));
+    MyFunc_MoveRight();
   }
 
   MyFunc_ImmediateShow();
   CView::OnKeyDown(nChar, nRepCnt, nFlags);
+}
+
+void CCG30612View::OnLButtonDown(UINT nFlags, CPoint point) {
+  this->SetCapture();
+  m_LButtonDown = true;
+  m_LButtonDownPos = point;
+
+  CView::OnLButtonDown(nFlags, point);
+}
+
+void CCG30612View::OnLButtonUp(UINT nFlags, CPoint point) {
+  ReleaseCapture();
+  m_LButtonDown = false;
+  m_LButtonDownPos = {};
+
+  CView::OnLButtonUp(nFlags, point);
+}
+
+void CCG30612View::OnMouseMove(UINT nFlags, CPoint point) {
+  if (m_LButtonDown) {
+    /* 左键按下时拖动鼠标可以切换视角 */
+    if (point != m_LButtonDownPos) {
+      MyFunc_SetCenter(point - m_LButtonDownPos);
+      m_LButtonDownPos = point;
+    }
+  }
+
+  CView::OnMouseMove(nFlags, point);
 }
