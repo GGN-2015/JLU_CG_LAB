@@ -33,6 +33,7 @@ ON_WM_LBUTTONDOWN()
 ON_WM_LBUTTONUP()
 ON_WM_MOUSEMOVE()
 ON_WM_TIMER()
+ON_COMMAND(ID_TOGGLECOLOR, &CCG30612View::OnTogglecolor)
 END_MESSAGE_MAP()
 
 // CCG30612View 构造/析构
@@ -110,6 +111,24 @@ void CCG30612View::AssertValid() const { CView::AssertValid(); }
 
 void CCG30612View::Dump(CDumpContext& dc) const { CView::Dump(dc); }
 
+RECT CCG30612View::MyStaticFunc_GetRectFromCSurface2dList(
+    CSurface2dList& slist) {
+  RECT ans = {};
+  if (slist.size() != 0) {
+    ans.left = ans.right = (int)(slist[0].x[0].GetX() + 0.5);
+    ans.top = ans.bottom = (int)(slist[0].x[0].GetY() + 0.5);
+  }
+  for (auto& surf : slist) {
+    for (int i = 0; i <= 3; i += 1) {
+      ans.left = min(ans.left, int(surf.x[i].GetX() + 0.5));
+      ans.right = max(ans.right, int(surf.x[i].GetX() + 0.5));
+      ans.top = min(ans.top, int(surf.x[i].GetY() + 0.5));
+      ans.bottom = max(ans.bottom, int(surf.x[i].GetY() + 0.5));
+    }
+  }
+  return ans; /* 用于确定缓冲区大小 */
+}
+
 CVector2d CCG30612View::MyFunc_ProjectionLogicToDevice(CVector2d pos) {
   return math::GetDevicePos(pos, m_Width, m_Height);
 }
@@ -160,8 +179,41 @@ void CCG30612View::MyFunc_ShowAllItem(CDC* pDC) {
 }
 
 void CCG30612View::MyFunc_ShowAllCubes(CDC* pDC) {
-  for (auto& pr : m_CubeMap) {
-    MyFunc_ShowCube(pDC, &pr.second);
+  if (m_LineMode) { /* 线框模式 */
+    for (auto& pr : m_CubeMap) {
+      MyFunc_ShowCube(pDC, &pr.second);
+    }
+  } else {
+    /* 获得所有平面 */
+    CSurface2dList slist;
+    for (auto& pr : m_CubeMap) {
+      MyFunc_GetSurfaceForCube(slist, &pr.second);
+    }
+
+    /* 确定缓冲区大小 */
+    RECT rect = MyStaticFunc_GetRectFromCSurface2dList(slist);
+
+    int wt = rect.right - rect.left + 1;
+    int ht = rect.bottom - rect.top + 1;
+    CVector2d topleft = {};
+    topleft.GetX() = rect.left;
+    topleft.GetY() = rect.top;
+
+    /* 申请 z buffer 缓冲 */
+    CZBuffer zbuf(wt, ht, topleft);
+    for (auto& surface : slist) {
+      /* 向缓冲中增加平面 */
+      if (surface.sid >= 0) {
+        zbuf.AddSurface(surface);
+      }
+    }
+
+    /* 绘制到 DC */
+    zbuf.OutputToDC(pDC);
+
+    /*for (auto& pr : m_CubeMap) {
+      MyFunc_ShowCube(pDC, &pr.second);
+    }*/
   }
 }
 
@@ -170,30 +222,14 @@ void CCG30612View::MyFunc_ShowCube(CDC* pDC, CCube* cube) {
     // assert(false);
 
     cube->Unify();
-    if (cube->p_CubeChanger != nullptr) { /* 更改正方体的姿态 */
+    if (cube->p_CubeChanger != nullptr && m_LineMode) { /* 更改正方体的姿态 */
       double tnow = math::GetClockTime();
       (cube->p_CubeChanger)(cube, tnow);
       cube->t = tnow;
+      cube->Unify();
     }
-    cube->Unify();
 
-    CVector3d corners[8] = {}; /* 确定八个顶点 */
-    MyFunc_GetCornersForCube(cube, corners);
-
-    /* 绘制 12 条棱 */
-    int lcnt = 0;
-    for (int i = 0; i <= 7; i += 1) {
-      for (int j = i + 1; j <= 7; j += 1) {
-        if ((i ^ j) == math::lowbit(i ^ j)) { /* 只有一位不同 */
-          lcnt += 1;
-          CVector2d from = MyFunc_ProjectionWorldToDevice(corners[i]);
-          CVector2d to = MyFunc_ProjectionWorldToDevice(corners[j]);
-          pDC->MoveTo((int)(from.GetX() + 0.5), (int)(from.GetY() + 0.5));
-          pDC->LineTo((int)(to.GetX() + 0.5), (int)(to.GetY() + 0.5));
-        }
-      }
-    }
-    printf("%d", lcnt);
+    MyFunc_ShowLinesForCube(pDC, cube); /* 显示正方体的所有棱 */
 
   } else {
     assert(false);
@@ -307,6 +343,74 @@ void CCG30612View::MyFunc_StartTimer(UINT id, UINT duration) {
   assert(TimerVal != 0);
 }
 
+void CCG30612View::MyFunc_ShowLinesForCube(CDC* pDC, CCube* cube) {
+  CVector3d corners[8] = {}; /* 确定八个顶点 */
+  MyFunc_GetCornersForCube(cube, corners);
+
+  /* 绘制 12 条棱 */
+  int lcnt = 0;
+  for (int i = 0; i <= 7; i += 1) {
+    for (int j = i + 1; j <= 7; j += 1) {
+      if ((i ^ j) == math::lowbit(i ^ j)) { /* 只有一位不同 */
+        lcnt += 1;
+        CVector2d from = MyFunc_ProjectionWorldToDevice(corners[i]);
+        CVector2d to = MyFunc_ProjectionWorldToDevice(corners[j]);
+        pDC->MoveTo((int)(from.GetX() + 0.5), (int)(from.GetY() + 0.5));
+        pDC->LineTo((int)(to.GetX() + 0.5), (int)(to.GetY() + 0.5));
+      }
+    }
+  }
+}
+
+void CCG30612View::MyFunc_ShowSurfaces(CDC* pDC, CSurface2dList& slist) {
+  assert(false);
+  for (auto& surface : slist) {
+    // TODO: 显示一个面
+  }
+}
+
+void CCG30612View::MyFunc_GetSurfaceForCube(CSurface2dList& slist,
+                                            CCube* cube) {
+  static const int idBuf[4] = {0, 2, 3, 1}; /* 枚举顺序 */
+
+  CVector3d corners[12];
+  MyFunc_GetCornersForCube(cube, corners);
+  int nid = 0; /* 面的编号从 0 到 5 */
+
+  /* 获得观察平面 */
+  CPlane plane = math::GetProjectionPlaneByPoint(m_Center);
+
+  for (int id = 0; id <= 2; id++) { /* id = 0, 前后, id = 1 左右, id = 2, 上下*/
+    for (int bit = 0; bit <= 1; bit++) { /* bit = 1, 前左上, bit = 0, 后右下 */
+      int idList[4] = {};
+      for (int i = 0; i <= 3; i++) {
+        int val = 0;
+        int tmp = idBuf[i];
+        for (int j = 0; j <= 2; j += 1) {
+          if (j == id) {
+            val = (val << 1) | bit;
+          } else {
+            val = (val << 1) | (tmp & 1);
+            tmp >>= 1;
+          }
+        }
+        idList[i] = val; /* 得到结点编号 */
+      }
+
+      /* 将多边形放到 Surface 中 */
+      CSurface2d tmpSurf = {};
+      tmpSurf.sid = nid++;
+      for (int i = 0; i <= 3; i += 1) {
+        tmpSurf.x[i] = MyFunc_ProjectionWorldToDevice(corners[idList[i]]);
+        tmpSurf.z[i] = math::GetDisFromPointToPlane(corners[idList[i]], plane);
+      }
+
+      /* 尾部追加 */
+      slist.push_back(tmpSurf);
+    }
+  }
+}
+
 double math::sgn(double x) {
   if (fabs(x) < 1e-6) {
     return 0;
@@ -352,6 +456,13 @@ CVector3d math::vmul(CVector3d v, double p) {
   return v;
 }
 
+CVector2d math::vmul(CVector2d v, double p) {
+  for (int i = 0; i <= 1; i += 1) {
+    v.x[i] *= p;
+  }
+  return v;
+}
+
 double math::vlen(CVector3d v) {
   double ans = 0;
   for (int i = 0; i <= 2; i += 1) {
@@ -360,9 +471,25 @@ double math::vlen(CVector3d v) {
   return sqrt(ans);
 }
 
+double math::vlen(CVector2d v) {
+  double ans = 0;
+  for (int i = 0; i <= 1; i += 1) {
+    ans += v.x[i] * v.x[i];
+  }
+  return sqrt(ans);
+}
+
 double math::vdot(CVector3d v1, CVector3d v2) {
   double ans = 0;
   for (int i = 0; i <= 2; i += 1) {
+    ans += v1.x[i] * v2.x[i];
+  }
+  return ans;
+}
+
+double math::vdot(CVector2d v1, CVector2d v2) {
+  double ans = 0;
+  for (int i = 0; i <= 1; i += 1) {
     ans += v1.x[i] * v2.x[i];
   }
   return ans;
@@ -406,6 +533,12 @@ CVector3d math::vrot(CVector3d v, CVector3d base, double rad) {
   return ans;
 }
 
+double math::GetDisFromPointToPlane(CVector3d p, CPlane plane) {
+  CVector3d front = vcross(plane.up, plane.left);
+  p = vadd(p, vneg(plane.pos));
+  return fabs(vdprj(p, front));
+}
+
 int math::lowbit(int x) { return x & -x; }
 
 CPlane math::GetProjectionPlaneByPoint(CVector3d pos) {
@@ -421,6 +554,11 @@ CVector3d math::vuni(CVector3d v) {
   return vmul(v, 1.0 / len); /* 得到给定方向上的单位向量 */
 }
 
+CVector2d math::vuni(CVector2d v) {
+  double len = vlen(v);
+  return vmul(v, 1.0 / len); /* 得到给定方向上的单位向量 */
+}
+
 CVector3d math::vneg(CVector3d v) {
   CVector3d ans = {};
   for (int i = 0; i <= 2; i += 1) {
@@ -429,8 +567,23 @@ CVector3d math::vneg(CVector3d v) {
   return ans;
 }
 
+CVector2d math::vneg(CVector2d v) {
+  CVector2d ans = {};
+  for (int i = 0; i <= 1; i += 1) {
+    ans.x[i] = -v.x[i];
+  }
+  return ans;
+}
+
 CVector3d math::vadd(CVector3d v1, CVector3d v2) {
   for (int i = 0; i <= 2; i += 1) {
+    v1.x[i] += v2.x[i];
+  }
+  return v1;
+}
+
+CVector2d math::vadd(CVector2d v1, CVector2d v2) {
+  for (int i = 0; i <= 1; i += 1) {
     v1.x[i] += v2.x[i];
   }
   return v1;
@@ -480,6 +633,57 @@ void math::ZSpinner(CCube* cube, double tnow) {
   }
 }
 
+void math::vdec(CVector2d r, CVector2d d1, CVector2d d2, double& x, double& y) {
+  /* 不允许向量恰好同向或者反向 */
+  assert(fabs(fabs(vdot(d1, d2)) - vlen(d1) * vlen(d2)) >= c_MathEps);
+
+  /* 不允许出现零向量 */
+  assert(vlen(d1) >= c_MathEps && vlen(d2) >= c_MathEps);
+
+  double A1 = vdot(d1, d1), B1 = vdot(d1, d2), C1 = vdot(r, d1);
+  double A2 = vdot(d1, d2), B2 = vdot(d2, d2), C2 = vdot(r, d2);
+
+  /* 克莱蒙法则求解 */
+  x = dcross(C1, B1, C2, B2) / dcross(A1, B1, A2, B2);
+  y = dcross(A1, C1, A2, C2) / dcross(A1, B1, A2, B2);
+}
+
+double math::dcross(double a1, double b1, double a2, double b2) {
+  return a1 * b2 - a2 * b1;
+}
+
+double math::vrad(CVector2d rf, CVector2d rt) {
+  static const double M_PI = acos(-1.0);
+
+  /* 单位化 */
+  rf = vuni(rf);
+  rt = vuni(rt);
+  double cross = rf.GetX() * rt.GetY() - rf.GetY() * rt.GetX(); /* sin */
+  double dot = vdot(rf, rt);                                    /* cos */
+
+  if (fabs(cross) < 1e-6) {  // sin = 0
+    if (dot > 0)
+      return 0;
+    else
+      return M_PI;
+  } else if (fabs(dot) < 1e-6) {  // cos = 0
+    if (cross > 0)
+      return M_PI / 2;
+    else
+      return -M_PI / 2;
+  } else {
+    if (cross > 0 && dot > 0) { /* 第一象限 */
+      return asin(cross);
+    } else if (cross > 0 && dot < 0) { /* 第二象限 */
+      return acos(dot);
+    } else if (cross < 0 && dot < 0) { /* 第三象限 */
+      return asin(-cross) - M_PI;
+    } else { /* 第四象限 */
+      return acos(-dot) - M_PI;
+    }
+  }
+}
+
 void CCG30612View::OnSize(UINT nType, int cx, int cy) {
   CView::OnSize(nType, cx, cy);
 
@@ -493,23 +697,6 @@ void CCube::Unify() {
 }
 
 void CCG30612View::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags) {
-  /* 左手边方向 */
-
-  /* switch (nChar) {
-    case VK_UP: {
-      m_Center.GetZ() += math::c_MoveEps;
-    } break;
-    case VK_DOWN: {
-      m_Center.GetZ() -= math::c_MoveEps;
-    } break;
-    case VK_LEFT: {
-      m_Center = math::vadd(m_Center, math::vmul(left, -math::c_MoveEps));
-    } break;
-    case VK_RIGHT: {
-      m_Center = math::vadd(m_Center, math::vmul(left, math::c_MoveEps));
-    } break;
-  }*/
-
   if (GetAsyncKeyState(VK_UP)) {
     MyFunc_MoveUp();
   }
@@ -558,7 +745,9 @@ void CCG30612View::OnMouseMove(UINT nFlags, CPoint point) {
 void CCG30612View::OnTimer(UINT_PTR nIDEvent) {
   // TODO: 在此添加消息处理程序代码和/或调用默认值
   if (nIDEvent == IDT_TIMER) {
-    MyFunc_ImmediateShow();
+    if (m_LineMode) {
+      MyFunc_ImmediateShow(); /* 只在画线模式，即时显示 */
+    }
   }
 
   CView::OnTimer(nIDEvent);
@@ -568,4 +757,128 @@ void CCG30612View::OnInitialUpdate() {
   CView::OnInitialUpdate();
 
   MyFunc_StartTimer(IDT_TIMER, 30);
+}
+
+double CSurface2d::GetZ(CVector2d v) {
+  CVector2d d1 = math::vadd(x[1], math::vneg(x[0])); /* 两个方向向量 */
+  CVector2d d2 = math::vadd(x[2], math::vneg(x[0]));
+
+  CVector2d r = math::vadd(v, math::vneg(x[0])); /* 坐标方向 */
+
+  if (math::vlen(d1) < math::c_MathEps || math::vlen(d2) < math::c_MathEps) {
+    /* 存在长度为零的边 */
+    double lenSum = math::vlen(d1) + math::vlen(d2);
+    double dz =
+        fabs(z[2] - z[0]) > fabs(z[1] - z[0]) ? z[2] - z[0] : z[1] - z[0];
+    return math::vlen(r) / lenSum * dz + z[0];
+  } else if (fabs(fabs(math::vdot(d1, d2)) - math::vlen(d1) * math::vlen(d2)) <
+             math::c_MathEps) {
+    /* 两个向量同向或者反向 */
+    double len, dz;
+    if (math::vdot(r, d1) > 0) {
+      /* r 和 d1 同向 */
+      len = math::vlen(d1);
+      dz = z[1] - z[0];
+    } else {
+      /* r 和 d2 同向 */
+      len = math::vlen(d2);
+      dz = z[2] - z[0];
+    }
+    return math::vlen(r) / len * dz + z[0];
+  } else {
+    /* d1, d2 既不同向也不反向 */
+    double x, y;
+    math::vdec(r, d1, d2, x, y); /* 对 r 在 d1, d2, 方向上进行分解 */
+    return x * (z[1] - z[0]) + y * (z[2] - z[0]) + z[0];
+  }
+}
+
+COLORREF CSurface2d::GetColorById(int sid) {
+  switch (sid) {
+    case 0:
+      return RGB(0, 255, 255);
+    case 1:
+      return RGB(255, 0, 255);
+    case 2:
+      return RGB(255, 255, 0);
+    case 3:
+      return RGB(255, 0, 0);
+    case 4:
+      return RGB(0, 255, 0);
+    case 5:
+      return RGB(0, 0, 255);
+    default:
+      assert(false);
+  }
+  return RGB(0, 0, 0);
+}
+
+bool CSurface2d::Contain(CVector2d npos) {
+  double rad = 0;
+  for (int now = 0; now <= 3; now++) { /* 环游一周 */
+    int nxt = now == 3 ? 0 : now + 1;  /* 下一条边 */
+    CVector2d nowv = math::vadd(x[now], math::vneg(npos));
+    CVector2d nxtv = math::vadd(x[nxt], math::vneg(npos));
+    double tmp = math::vrad(nowv, nxtv);
+    rad += tmp; /* 计算有向夹角 */
+  }
+  double tmp = fabs(rad);
+  bool ans = fabs(tmp) > math::c_MathEps;
+
+  // assert(ans == false);
+  return ans;
+}
+
+/* 构造 z buffer */
+CZBuffer::CZBuffer(int wt, int ht, CVector2d topleft) : m_TopLeft(topleft) {
+  m_Width = wt;
+  m_Height = ht;
+
+  /* 构造每一列 */
+  m_Buffer2d = CBuffer2d(wt);
+  assert(m_Buffer2d.size() == wt);
+
+  /* 构造每一列的每一行 */
+  CBuffer1d tmp(ht);
+  assert(tmp.size() == ht);
+
+  /* 深拷贝 */
+  for (int i = 0; i < m_Buffer2d.size(); i += 1) {
+    m_Buffer2d[i] = tmp;
+  }
+}
+
+void CZBuffer::AddSurface(CSurface2d& surface) {
+  for (int i = 0; i < m_Width; i++) {
+    for (int j = 0; j < m_Height; j++) {
+      /* 如果这个点被这个面包含 */
+      double posx = i + m_TopLeft.GetX();
+      double posy = j + m_TopLeft.GetY();
+      CVector2d npos = {posx, posy};
+      if (surface.Contain(npos)) {
+        double ndep = surface.GetZ(npos);
+        if (m_Buffer2d[i][j].z >= ndep) {
+          m_Buffer2d[i][j].z = ndep;
+          m_Buffer2d[i][j].color = surface.GetColorById(surface.sid);
+        }
+      }
+    }
+  }
+}
+
+void CZBuffer::OutputToDC(CDC* pDC) {
+  for (int i = 0; i < m_Width; i++) {
+    for (int j = 0; j < m_Height; j++) {
+      if (m_Buffer2d[i][j].z < math::c_DoubleMax) {
+        pDC->SetPixel((int)(i + m_TopLeft.GetX() + 0.5),
+                      (int)(j + m_TopLeft.GetY() + 0.5),
+                      m_Buffer2d[i][j].color);
+      }
+    }
+  }
+}
+
+void CCG30612View::OnTogglecolor() {
+  m_LineMode = !m_LineMode;
+  MyFunc_ImmediateShow();
 }
