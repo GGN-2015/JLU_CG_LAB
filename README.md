@@ -65,9 +65,9 @@ GetDC 后要 ReleaseDC 而不是 DeleteDC（DeleteDC 用于销毁一个 DC）。
 
 要将 SetTimer 放到 OnInitialUpdate 中执行，而不要放到构造函数中执行（此时窗口初始化未完成），否则无法正常执行。
 
-角度计算错误导致填充出错（留几张搞笑的图）：
+在判断点是否在多边形内时由于角度计算错误导致填充出错（留几张搞笑的图）：
 
-![wrongrad](D:\JLU_CG_LAB\img\wrongrad.png)
+![wrongrad](./img/wrongrad.png)
 
 ## CG4-
 
