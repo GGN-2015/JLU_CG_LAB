@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <iostream>
 #include <map>
 #include <vector>
@@ -18,13 +19,6 @@ struct CVector3d { /* 空间三维坐标 */
   double& GetX();
   double& GetY();
   double& GetZ();
-};
-struct CVector4d { /* 空间三维齐次坐标 */
-  double x[4];
-  double& GetX();
-  double& GetY();
-  double& GetZ();
-  double& GetW();
 };
 struct CPlane { /* 平面 */
   CVector3d pos, up, left;
@@ -46,7 +40,8 @@ struct CSurface2d { /* 记录一个四变型 */
   CVector2d x[4];
   double z[4];              /* 用于计算 z 缓冲 */
   double GetZ(CVector2d v); /* 为多边形中的一个点计算 z */
-  int sid;                  /* 用于决定面的颜色 */
+  double GetZ(CVector2d v, int base, int t1, int t2);
+  int sid; /* 用于决定面的颜色 */
 
   static COLORREF GetColorById(int sid);
   bool Contain(CVector2d npos); /* 检测一个二维点是否在一个多边形里 */
@@ -137,7 +132,7 @@ void ZSpinner(CCube* cube, double tnow);
 /* 向量分解 */
 void vdec(CVector2d r, CVector2d d1, CVector2d d2, double& x, double& y);
 double dcross(double a1, double b1, double a2, double b2);
-/**/
+double dcross(CVector2d u, CVector2d v);
 double vrad(CVector2d rf, CVector2d rt); /* 计算有向夹角 */
 
 }  // namespace math

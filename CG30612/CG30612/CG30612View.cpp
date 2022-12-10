@@ -441,14 +441,6 @@ double& CVector3d::GetY() { return x[1]; }
 
 double& CVector3d::GetZ() { return x[2]; }
 
-double& CVector4d::GetX() { return x[0]; }
-
-double& CVector4d::GetY() { return x[1]; }
-
-double& CVector4d::GetZ() { return x[2]; }
-
-double& CVector4d::GetW() { return x[3]; }
-
 CVector3d math::vmul(CVector3d v, double p) {
   for (int i = 0; i <= 2; i += 1) {
     v.x[i] *= p;
@@ -652,6 +644,10 @@ double math::dcross(double a1, double b1, double a2, double b2) {
   return a1 * b2 - a2 * b1;
 }
 
+double math::dcross(CVector2d u, CVector2d v) { /* 二维叉积 */
+  return dcross(u.GetX(), v.GetX(), u.GetY(), v.GetY());
+}
+
 double math::vrad(CVector2d rf, CVector2d rt) {
   static const double M_PI = acos(-1.0);
 
@@ -759,18 +755,43 @@ void CCG30612View::OnInitialUpdate() {
   MyFunc_StartTimer(IDT_TIMER, 30);
 }
 
-double CSurface2d::GetZ(CVector2d v) {
-  CVector2d d1 = math::vadd(x[1], math::vneg(x[0])); /* 两个方向向量 */
-  CVector2d d2 = math::vadd(x[2], math::vneg(x[0]));
+struct CmpNode {
+  int id;
+  double dis;
+};
+bool NodeCmp(const CmpNode& A, const CmpNode& B) {
+  return A.dis < B.dis; /* 按距离从小到大排序 */
+}
 
-  CVector2d r = math::vadd(v, math::vneg(x[0])); /* 坐标方向 */
+double CSurface2d::GetZ(CVector2d v) {
+  /* 采用了三角剖分的做法 */
+  int base = 0;
+
+  CVector2d d12 = math::vadd(x[2], math::vneg(x[1]));
+  CVector2d d13 = math::vadd(x[3], math::vneg(x[1]));
+  CVector2d d1v = math::vadd(v, math::vneg(x[1]));
+
+  if (math::sgn(math::dcross(d12, d1v)) == math::sgn(math::dcross(d12, d13))) {
+    base = 3;
+  }
+
+  int t1 = base ^ 1;
+  int t2 = base ^ 2;
+  return GetZ(v, base, t1, t2);
+}
+
+double CSurface2d::GetZ(CVector2d v, int base, int t1, int t2) {
+  CVector2d d1 = math::vadd(x[t1], math::vneg(x[base])); /* 两个方向向量 */
+  CVector2d d2 = math::vadd(x[t2], math::vneg(x[base]));
+
+  CVector2d r = math::vadd(v, math::vneg(x[base])); /* 坐标方向 */
 
   if (math::vlen(d1) < math::c_MathEps || math::vlen(d2) < math::c_MathEps) {
     /* 存在长度为零的边 */
     double lenSum = math::vlen(d1) + math::vlen(d2);
-    double dz =
-        fabs(z[2] - z[0]) > fabs(z[1] - z[0]) ? z[2] - z[0] : z[1] - z[0];
-    return math::vlen(r) / lenSum * dz + z[0];
+    double dz = fabs(z[t2] - z[base]) > fabs(z[t1] - z[base]) ? z[t2] - z[base]
+                                                              : z[t1] - z[base];
+    return math::vlen(r) / lenSum * dz + z[base];
   } else if (fabs(fabs(math::vdot(d1, d2)) - math::vlen(d1) * math::vlen(d2)) <
              math::c_MathEps) {
     /* 两个向量同向或者反向 */
@@ -778,18 +799,23 @@ double CSurface2d::GetZ(CVector2d v) {
     if (math::vdot(r, d1) > 0) {
       /* r 和 d1 同向 */
       len = math::vlen(d1);
-      dz = z[1] - z[0];
+      dz = z[t1] - z[base];
     } else {
       /* r 和 d2 同向 */
       len = math::vlen(d2);
-      dz = z[2] - z[0];
+      dz = z[t2] - z[base];
     }
-    return math::vlen(r) / len * dz + z[0];
+    return math::vlen(r) / len * dz + z[base];
   } else {
     /* d1, d2 既不同向也不反向 */
     double x, y;
     math::vdec(r, d1, d2, x, y); /* 对 r 在 d1, d2, 方向上进行分解 */
-    return x * (z[1] - z[0]) + y * (z[2] - z[0]) + z[0];
+
+    double ans = z[base];
+    ans += y * (z[t2] - z[base]);
+    ans += x * (z[t1] - z[base]);
+
+    return ans;
   }
 }
 
