@@ -49,6 +49,8 @@ struct CSurface2d { /* 记录一个四变型 */
 
 #define BACKGROUND_COLOR RGB(255, 255, 255)
 #define IDT_TIMER (WM_USER + 200)
+#define PROJECTMETHOD_PERSPECTIVE (0)  /* 透视投影 */
+#define PROJECTMETHOD_ORTHOGRAPHIC (1) /* 平行投影 */
 
 typedef std::map<int, CCube> CCubeMap;
 typedef std::vector<CSurface2d> CSurface2dList; /* 多边形序列 */
@@ -91,7 +93,9 @@ const double c_z_min = -5.0;
 const double c_MoveEps = 1e-1;
 const double c_ScreenDistance = 7.0; /* 投影面到原点的距离 */
 const double c_CenterDistance = 8.0; /* 投影点到原点的距离 */
-const double c_LogicRate = 1000.0;   /* 1 LogicUnit = ? Pixel */
+// const double c_LogicRate = 1000.0;   /* 1 LogicUnit = ? Pixel */
+double GetLogicRate(int m_ProjectionMethod); /* 获取单位转换 */
+
 const double c_SpinSpeed = 2 * acos(-1.0) / 3.0; /* 三秒一圈 */
 const CVector3d c_Vector3d_z = {0, 0, 1.0};      /* z轴 */
 
@@ -214,6 +218,8 @@ class CCG30612View : public CView {
   afx_msg void OnTimer(UINT_PTR nIDEvent);
   virtual void OnInitialUpdate();
   afx_msg void OnTogglecolor();
+  afx_msg void OnOrthographic();
+  afx_msg void OnPerspective();
 };
 
 #ifndef _DEBUG  // CG30612View.cpp 中的调试版本

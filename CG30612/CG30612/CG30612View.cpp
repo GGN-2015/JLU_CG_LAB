@@ -34,9 +34,14 @@ ON_WM_LBUTTONUP()
 ON_WM_MOUSEMOVE()
 ON_WM_TIMER()
 ON_COMMAND(ID_TOGGLECOLOR, &CCG30612View::OnTogglecolor)
+ON_COMMAND(ID_Orthographic, &CCG30612View::OnOrthographic)
+ON_COMMAND(ID_PERSPECTIVE, &CCG30612View::OnPerspective)
 END_MESSAGE_MAP()
 
 // CCG30612View 构造/析构
+
+static int m_ProjectMethod =
+    PROJECTMETHOD_PERSPECTIVE; /* 改到后来懒得设计了，直接设成全局变量了 */
 
 static void EnablePrintfAtMFC() {
   if (AttachConsole(ATTACH_PARENT_PROCESS)) {
@@ -134,8 +139,14 @@ CVector2d CCG30612View::MyFunc_ProjectionLogicToDevice(CVector2d pos) {
 }
 
 CVector2d CCG30612View::MyFunc_ProjectionWorldToLogic(CVector3d pos) {
-  CPlane plane = math::GetProjectionPlaneByPoint(m_Center);
-  return math::GetPrjV2d(pos, plane, m_Center);
+  if (m_ProjectMethod == PROJECTMETHOD_ORTHOGRAPHIC) { /* 平行投影投影 */
+    CPlane plane = math::GetProjectionPlaneByPoint(m_Center);
+    return math::GetPrjV2d(pos, plane, math::vadd(m_Center, pos));
+
+  } else { /* 透视投影*/
+    CPlane plane = math::GetProjectionPlaneByPoint(m_Center);
+    return math::GetPrjV2d(pos, plane, m_Center);
+  }
 }
 
 CVector2d CCG30612View::MyFunc_ProjectionWorldToDevice(CVector3d pos) {
@@ -567,6 +578,14 @@ CVector2d math::vneg(CVector2d v) {
   return ans;
 }
 
+double math::GetLogicRate(int m_ProjectionMethod) {
+  if (m_ProjectionMethod == PROJECTMETHOD_ORTHOGRAPHIC)
+    return 131.25;
+  else if (m_ProjectionMethod == PROJECTMETHOD_PERSPECTIVE)
+    return 1000.0;
+  assert(false);
+}
+
 CVector3d math::vadd(CVector3d v1, CVector3d v2) {
   for (int i = 0; i <= 2; i += 1) {
     v1.x[i] += v2.x[i];
@@ -602,12 +621,13 @@ CVector2d math::GetPrjV2d(CVector3d pos, const CPlane& plane,
 }
 
 CVector2d math::GetDevicePos(CVector2d p, int width, int height) {
-  double w = width / c_LogicRate;
-  double h = height / c_LogicRate; /* 获得设备尺寸（逻辑单位）*/
+  double w = width / GetLogicRate(m_ProjectMethod);
+  double h =
+      height / GetLogicRate(m_ProjectMethod); /* 获得设备尺寸（逻辑单位）*/
 
   CVector2d ans = {p.GetX() + w / 2, h / 2 - p.GetY()};
   for (int i = 0; i <= 1; i += 1) {
-    ans.x[i] *= c_LogicRate;
+    ans.x[i] *= GetLogicRate(m_ProjectMethod);
   }
   return ans; /* 得到用于输出的坐标 */
 }
@@ -906,5 +926,15 @@ void CZBuffer::OutputToDC(CDC* pDC) {
 
 void CCG30612View::OnTogglecolor() {
   m_LineMode = !m_LineMode;
+  MyFunc_ImmediateShow();
+}
+
+void CCG30612View::OnOrthographic() {
+  m_ProjectMethod = PROJECTMETHOD_ORTHOGRAPHIC;
+  MyFunc_ImmediateShow();
+}
+
+void CCG30612View::OnPerspective() {
+  m_ProjectMethod = PROJECTMETHOD_PERSPECTIVE;
   MyFunc_ImmediateShow();
 }

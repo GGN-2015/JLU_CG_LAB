@@ -513,11 +513,14 @@ void CCG40612View::MyStaticFunc_DrawSquare(CDC* pDC, RECT rect,
   CPen pen(PS_SOLID, 1, color);
   CPen* oldpen = pDC->SelectObject(&pen);
 
-  pDC->MoveTo({rect.left, rect.top});
-  pDC->LineTo({rect.right, rect.top});
-  pDC->LineTo({rect.right, rect.bottom});
-  pDC->LineTo({rect.left, rect.bottom});
-  pDC->LineTo({rect.left, rect.top});
+  if (rect.left > BOUND_PIXEL &&
+      rect.top > BOUND_PIXEL) { /* 避免出现错误的绘制 */
+    pDC->MoveTo({rect.left, rect.top});
+    pDC->LineTo({rect.right, rect.top});
+    pDC->LineTo({rect.right, rect.bottom});
+    pDC->LineTo({rect.left, rect.bottom});
+    pDC->LineTo({rect.left, rect.top});
+  }
 
   pDC->SelectObject(oldpen);
 }
@@ -630,7 +633,9 @@ void CCG40612View::MyFunc_ShowAllNode(CDC* pDC) {
         ptr->second.tag == UNDEFINED ? NODE_COLOR : NODE_SELECTED_COLOR;
 
     /* 对比模式下只显示有标签的结点 */
-    if (!m_CompareMod || ptr->second.tag != UNDEFINED) {
+    if ((!m_CompareMod || ptr->second.tag != UNDEFINED) &&
+        (nodePoint.pos.x > BOUND_PIXEL ||
+         nodePoint.pos.y > BOUND_PIXEL)) {              /* 避免错误绘制 */
       MyStaticFunc_DrawNode(pDC, nodePoint.pos, color); /* 绘制椭圆结点 */
     }
   }

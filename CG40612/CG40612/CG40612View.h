@@ -56,6 +56,7 @@ typedef std::map<int, CPolygon> CPolygonMap; /* 多边形集合 */
 #define NEW_POLYGON_COLOR RGB(0, 255, 0)    /* 新的多边形 */
 #define OLD_POLYGON_COLOR RGB(255, 0, 0)    /* 旧的多边形 */
 #define BACKGROUND_COLOR RGB(255, 255, 255) /* 设置背景颜色 */
+#define BOUND_PIXEL (5)                     /* 极端情况避免绘制 */
 #define UNDEFINED (-1)
 
 class CCG40612View : public CView {
