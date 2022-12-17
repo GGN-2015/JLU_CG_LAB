@@ -57,7 +57,10 @@ typedef std::vector<CSurface2d> CSurface2dList; /* 多边形序列 */
 
 namespace math {
 const double c_DoubleMax = 1e100;
-}
+const double c_SpanRateDelta = 0.1;
+const double c_SpanRateMin = 0.3;
+const double c_SpanRateMax = 3.0;
+}  // namespace math
 
 struct CBufferElement { /* z 缓冲中的元素 */
   double z;
@@ -220,6 +223,7 @@ class CCG30612View : public CView {
   afx_msg void OnTogglecolor();
   afx_msg void OnOrthographic();
   afx_msg void OnPerspective();
+  afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
 };
 
 #ifndef _DEBUG  // CG30612View.cpp 中的调试版本

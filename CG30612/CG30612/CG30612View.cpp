@@ -36,12 +36,14 @@ ON_WM_TIMER()
 ON_COMMAND(ID_TOGGLECOLOR, &CCG30612View::OnTogglecolor)
 ON_COMMAND(ID_Orthographic, &CCG30612View::OnOrthographic)
 ON_COMMAND(ID_PERSPECTIVE, &CCG30612View::OnPerspective)
+ON_WM_MOUSEWHEEL()
 END_MESSAGE_MAP()
 
 // CCG30612View 构造/析构
 
-static int m_ProjectMethod =
-    PROJECTMETHOD_PERSPECTIVE; /* 改到后来懒得设计了，直接设成全局变量了 */
+/* 改到后来懒得设计了，直接设成全局变量了 */
+static int m_ProjectMethod = PROJECTMETHOD_PERSPECTIVE; /* 投影方式 */
+static double m_SpanRate = 1.0;                         /* 放缩比例 */
 
 static void EnablePrintfAtMFC() {
   if (AttachConsole(ATTACH_PARENT_PROCESS)) {
@@ -294,6 +296,13 @@ void CCG30612View::MyFunc_ShowHelpText(CDC* pDC) {
   rect.right = 400;
   rect.bottom = 60;
   pDC->DrawText(TEXT("也可使用鼠标拖拽控制视角转动"), &rect,
+                DT_SINGLELINE | DT_CENTER | DT_VCENTER);
+
+  rect.left = 0;
+  rect.top = 60;
+  rect.right = 400;
+  rect.bottom = 90;
+  pDC->DrawText(TEXT("可以使用鼠标滑轮控制实体的缩放"), &rect,
                 DT_SINGLELINE | DT_CENTER | DT_VCENTER);
 }
 
@@ -580,10 +589,12 @@ CVector2d math::vneg(CVector2d v) {
 
 double math::GetLogicRate(int m_ProjectionMethod) {
   if (m_ProjectionMethod == PROJECTMETHOD_ORTHOGRAPHIC)
-    return 131.25;
+    return 131.25 * m_SpanRate;
   else if (m_ProjectionMethod == PROJECTMETHOD_PERSPECTIVE)
-    return 1000.0;
+    return 1000.0 * m_SpanRate;
+
   assert(false);
+  return 1000.0;
 }
 
 CVector3d math::vadd(CVector3d v1, CVector3d v2) {
@@ -937,4 +948,22 @@ void CCG30612View::OnOrthographic() {
 void CCG30612View::OnPerspective() {
   m_ProjectMethod = PROJECTMETHOD_PERSPECTIVE;
   MyFunc_ImmediateShow();
+}
+
+BOOL CCG30612View::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt) {
+  if (zDelta > 0) { /* 远离用户滚动滑轮，放大 */
+    m_SpanRate += math::c_SpanRateDelta;
+
+    if (m_SpanRate > math::c_SpanRateMax) {
+      m_SpanRate = math::c_SpanRateMax;
+    }
+  } else if (zDelta < 0) { /* 缩小 */
+    m_SpanRate -= math::c_SpanRateDelta;
+
+    if (m_SpanRate < math::c_SpanRateMin) {
+      m_SpanRate = math::c_SpanRateMin;
+    }
+  }
+
+  return CView::OnMouseWheel(nFlags, zDelta, pt);
 }
