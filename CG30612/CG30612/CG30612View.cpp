@@ -417,12 +417,22 @@ void CCG30612View::MyFunc_GetSurfaceForCube(CSurface2dList& slist,
         idList[i] = val; /* 得到结点编号 */
       }
 
+      /* d1 是观察点到投影面的距离 */
+      double d1, d2;
+      d1 = math::GetDisFromPointToPlane(m_Center, plane);
+
       /* 将多边形放到 Surface 中 */
       CSurface2d tmpSurf = {};
       tmpSurf.sid = nid++;
       for (int i = 0; i <= 3; i += 1) {
         tmpSurf.x[i] = MyFunc_ProjectionWorldToDevice(corners[idList[i]]);
-        tmpSurf.z[i] = math::GetDisFromPointToPlane(corners[idList[i]], plane);
+
+        /* 这里的距离应该特殊考虑透视变换距离 */
+        tmpSurf.z[i] = d2 =
+            math::GetDisFromPointToPlane(corners[idList[i]], plane);
+        if (m_ProjectMethod == PROJECTMETHOD_PERSPECTIVE) {
+          tmpSurf.z[i] *= d1 / (d1 + d2);
+        }
       }
 
       /* 尾部追加 */
